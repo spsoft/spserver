@@ -1,0 +1,95 @@
+/*
+ * Copyright 2007 Stephen Liu
+ * For license terms, see the file COPYING along with this library.
+ */
+
+
+#ifndef __spresponse_hpp__
+#define __spresponse_hpp__
+
+#include <sys/types.h>
+
+#ifdef linux
+#include <stdint.h>
+#endif
+
+class SP_Buffer;
+struct evbuffer;
+class SP_ArrayList;
+
+typedef struct tagSP_Sid {
+	uint16_t mKey;
+	uint16_t mSeq;
+} SP_Sid_t;
+
+class SP_SidList {
+public:
+	SP_SidList();
+	~SP_SidList();
+
+	int getCount() const;
+	void add( SP_Sid_t sid );
+	SP_Sid_t get( int index ) const;
+	SP_Sid_t take( int index );
+
+	int find( SP_Sid_t sid ) const;
+
+private:
+	SP_SidList( SP_SidList & );
+	SP_SidList & operator=( SP_SidList & );
+
+	SP_ArrayList * mList;
+};
+
+class SP_Message {
+public:
+	SP_Message( int completionKey = 0 );
+	~SP_Message();
+
+	SP_SidList * getToList();
+	SP_Buffer * getMsg();
+
+	SP_SidList * getSuccess();
+	SP_SidList * getFailure();
+
+	void setCompletionKey( int completionKey );
+	int getCompletionKey();
+
+private:
+	SP_Message( SP_Message & );
+	SP_Message & operator=( SP_Message & );
+
+	SP_Sid_t mFromSid;
+	SP_Buffer * mMsg;
+
+	SP_SidList * mToList;
+	SP_SidList * mSuccess;
+	SP_SidList * mFailure;
+
+	int mCompletionKey;
+};
+
+class SP_Response {
+public:
+	SP_Response( SP_Sid_t fromSid );
+	~SP_Response();
+
+	SP_Sid_t getFromSid() const;
+	SP_Message * getReply();
+
+	void addMessage( SP_Message * msg );
+	SP_Message * peekMessage();
+	SP_Message * takeMessage();
+
+private:
+	SP_Response( SP_Response & );
+	SP_Response & operator=( SP_Response & );
+
+	SP_Sid_t mFromSid;
+	SP_Message * mReply;
+
+	SP_ArrayList * mList;
+};
+
+#endif
+
