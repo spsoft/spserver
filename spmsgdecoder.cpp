@@ -1,0 +1,132 @@
+/*
+ * Copyright 2007 Stephen Liu
+ * For license terms, see the file COPYING along with this library.
+ */
+
+#include <string.h>
+
+#include "spmsgdecoder.hpp"
+
+#include "spbuffer.hpp"
+
+//-------------------------------------------------------------------
+
+SP_MsgDecoder :: ~SP_MsgDecoder()
+{
+}
+
+//-------------------------------------------------------------------
+
+SP_DefaultMsgDecoder :: SP_DefaultMsgDecoder()
+{
+	mBuffer = new SP_Buffer();
+}
+
+SP_DefaultMsgDecoder :: ~SP_DefaultMsgDecoder()
+{
+	if( NULL != mBuffer ) delete mBuffer;
+	mBuffer = NULL;
+}
+
+int SP_DefaultMsgDecoder :: decode( SP_Buffer * inBuffer )
+{
+	mBuffer->reset();
+
+	mBuffer->append( inBuffer );
+
+	inBuffer->reset();
+
+	return eOK;
+}
+
+const void * SP_DefaultMsgDecoder :: getMsg()
+{
+	return mBuffer;
+}
+
+//-------------------------------------------------------------------
+
+SP_LineMsgDecoder :: SP_LineMsgDecoder()
+{
+	mLine = NULL;
+}
+
+SP_LineMsgDecoder :: ~SP_LineMsgDecoder()
+{
+	if( NULL != mLine ) {
+		free( mLine );
+		mLine = NULL;
+	}
+}
+
+int SP_LineMsgDecoder :: decode( SP_Buffer * inBuffer )
+{
+	if( NULL != mLine ) free( mLine );
+	mLine = inBuffer->getLine();
+
+	return NULL == mLine ? eMoreData : eOK;
+}
+
+const void * SP_LineMsgDecoder :: getMsg()
+{
+	return mLine;
+}
+
+//-------------------------------------------------------------------
+
+SP_DotTermMsgDecoder :: SP_DotTermMsgDecoder()
+{
+	mBuffer = NULL;
+}
+
+SP_DotTermMsgDecoder :: ~SP_DotTermMsgDecoder()
+{
+	if( NULL != mBuffer ) {
+		free( mBuffer );
+	}
+	mBuffer = NULL;
+}
+
+int SP_DotTermMsgDecoder :: decode( SP_Buffer * inBuffer )
+{
+	if( NULL != mBuffer ) free( mBuffer );
+
+	const char * pos = (char*)inBuffer->find( "\r\n.\r\n", 5 );	
+
+	if( NULL == pos ) {
+		pos = (char*)inBuffer->find( "\n.\n", 3 );
+	}
+
+	if( NULL != pos ) {
+		int len = pos - (char*)inBuffer->getBuffer();
+
+		mBuffer = (char*)malloc( len + 1 );
+		memcpy( mBuffer, inBuffer->getBuffer(), len );
+		mBuffer[ len ] = '\0';
+
+		inBuffer->erase( len );
+
+		/* remove with the "\n.." */
+		char * src, * des;
+		for( src = des = mBuffer + 1; * src != '\0'; ) {
+			if( '.' == *src && '\n' == * ( src - 1 ) ) src++ ;
+			* des++ = * src++;
+		}
+		* des = '\0';
+
+		if( 0 == strcmp( (char*)pos, "\n.\n" ) ) {
+			inBuffer->erase( 3 );
+		} else  {
+			inBuffer->erase( 5 );
+		}
+		return eOK;
+	} else {
+		return eMoreData;
+	}
+}
+
+const void * SP_DotTermMsgDecoder :: getMsg()
+{
+	return mBuffer;
+}
+
