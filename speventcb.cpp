@@ -250,7 +250,7 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 			}
 		} else {
 			for( ; sidList->getCount() > 0; ) {
-				msg->getFailure()->add( sidList->take( 0 ) );
+				msg->getFailure()->add( sidList->take( SP_ArrayList::LAST_INDEX ) );
 			}
 		}
 
@@ -362,11 +362,11 @@ void SP_EventHelper :: doError( SP_Session * session )
 
 	SP_ArrayList * outList = session->getOutList();
 	for( ; outList->getCount() > 0; ) {
-		SP_Message * msg = ( SP_Message * ) outList->takeItem( 0 );
+		SP_Message * msg = ( SP_Message * ) outList->takeItem( SP_ArrayList::LAST_INDEX );
 
 		int index = msg->getToList()->find( sid );
 		if( index >= 0 ) msg->getToList()->take( index );
-		msg->getSuccess()->add( sid );
+		msg->getFailure()->add( sid );
 
 		if( msg->getToList()->getCount() <= 0 ) {
 			doCompletion( eventArg, msg );
@@ -409,11 +409,11 @@ void SP_EventHelper :: doTimeout( SP_Session * session )
 
 	SP_ArrayList * outList = session->getOutList();
 	for( ; outList->getCount() > 0; ) {
-		SP_Message * msg = ( SP_Message * ) outList->takeItem( 0 );
+		SP_Message * msg = ( SP_Message * ) outList->takeItem( SP_ArrayList::LAST_INDEX );
 
 		int index = msg->getToList()->find( sid );
 		if( index >= 0 ) msg->getToList()->take( index );
-		msg->getSuccess()->add( sid );
+		msg->getFailure()->add( sid );
 
 		if( msg->getToList()->getCount() <= 0 ) {
 			doCompletion( eventArg, msg );
