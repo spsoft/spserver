@@ -209,12 +209,12 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 	SP_EventArg_t * eventArg = (SP_EventArg_t*)arg;
 	SP_SessionManager * manager = eventArg->mSessionManager;
 
-	SP_Sid_t sid = response->getFromSid();
+	SP_Sid_t fromSid = response->getFromSid();
 
 	u_int16_t seq = 0;
-	SP_Session * session = manager->get( sid.mKey, &seq );
+	SP_Session * session = manager->get( fromSid.mKey, &seq );
 
-	if( seq == sid.mSeq && NULL != session ) {
+	if( seq == fromSid.mSeq && NULL != session ) {
 		if( SP_Session::eWouldExit == session->getStatus() ) {
 			session->setStatus( SP_Session::eExit );
 		}
@@ -227,7 +227,7 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 		// so the pending input can be processed in onWrite
 		addEvent( session, EV_WRITE, -1 );
 	} else {
-		syslog( LOG_WARNING, "session(%d.%d) invalid, unknown from", sid.mKey, sid.mSeq );
+		syslog( LOG_WARNING, "session(%d.%d) invalid, unknown FROM", fromSid.mKey, fromSid.mSeq );
 	}
 
 	for( SP_Message * msg = response->takeMessage();
@@ -237,15 +237,22 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 
 		if( msg->getMsg()->getSize() > 0 ) {
 			for( int i = sidList->getCount() - 1; i >= 0; i-- ) {
-				sid = sidList->get( i );
+				SP_Sid_t sid = sidList->get( i );
 				session = manager->get( sid.mKey, &seq );
 				if( seq == sid.mSeq && NULL != session ) {
-					session->getOutList()->append( msg );
-					addEvent( session, EV_WRITE, -1 );
+					if( 0 != memcmp( &fromSid, &sid, sizeof( sid ) )
+							&& SP_Session::eExit == session->getStatus() ) {
+						sidList->take( i );
+						msg->getFailure()->add( sid );
+						syslog( LOG_WARNING, "session(%d.%d) would exit, invalid TO", sid.mKey, sid.mSeq );
+					} else {
+						session->getOutList()->append( msg );
+						addEvent( session, EV_WRITE, -1 );
+					}
 				} else {
 					sidList->take( i );
 					msg->getFailure()->add( sid );
-					syslog( LOG_WARNING, "session(%d.%d) invalid, unknown to", sid.mKey, sid.mSeq );
+					syslog( LOG_WARNING, "session(%d.%d) invalid, unknown TO", sid.mKey, sid.mSeq );
 				}
 			}
 		} else {
