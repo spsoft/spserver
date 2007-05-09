@@ -529,13 +529,13 @@ int SP_EventHelper :: transmit( SP_Session * session, int fd )
 	int len = writev( fd, iov, iovSize );
 
 	if( len > 0 ) {
-		outOffset = len;
+		outOffset = session->getOutOffset() + len;
 
-		for( int i = 0; i < iovSize; i++ ) {
-			if( outOffset >= (int)iov[i].iov_len ) {
-				outOffset -= iov[i].iov_len;
-
+		for( ; outList->getCount() > 0; ) {
+			SP_Message * msg = (SP_Message*)outList->getItem( 0 );
+			if( outOffset >= msg->getMsg()->getSize() ) {
 				SP_Message * msg = (SP_Message*)outList->takeItem( 0 );
+				outOffset = outOffset - msg->getMsg()->getSize();
 
 				int index = msg->getToList()->find( session->getSid() );
 				if( index >= 0 ) msg->getToList()->take( index );
@@ -549,7 +549,7 @@ int SP_EventHelper :: transmit( SP_Session * session, int fd )
 			}
 		}
 
-		session->setOutOffset( outOffset + session->getOutOffset() );
+		session->setOutOffset( outOffset );
 	}
 
 	return len;
