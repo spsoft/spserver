@@ -549,7 +549,7 @@ int SP_EventHelper :: transmit( SP_Session * session, int fd )
 			}
 		}
 
-		session->setOutOffset( outOffset );
+		session->setOutOffset( outOffset + session->getOutOffset() );
 	}
 
 	return len;
