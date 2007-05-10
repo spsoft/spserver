@@ -25,10 +25,12 @@ LDFLAGS += $(LIBEVENT_LIB) -lpthread -lresolv
 
 LIBOBJS = sputils.o spthreadpool.o event_msgqueue.o spbuffer.o sphandler.o \
 	spmsgdecoder.o spresponse.o sprequest.o \
-	spexecutor.o spsession.o speventcb.o spserver.o
+	spexecutor.o spsession.o speventcb.o spserver.o \
+	sphttpmsg.o sphttp.o
 
 TARGET =  libspserver.so \
-		testecho testthreadpool testsmtp testchat teststress
+		testecho testthreadpool testsmtp testchat teststress testhttp \
+		testhttpmsg
 
 #--------------------------------------------------------------------
 
@@ -51,6 +53,12 @@ teststress: teststress.o
 
 testecho: testecho.o
 	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
+
+testhttp: testhttp.o
+	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
+
+testhttpmsg: sputils.o sphttpmsg.o testhttpmsg.o
+	$(LINKER) $(LDFLAGS) $^ -o $@
 
 dist: clean spserver-$(version).src.tar.gz
 
