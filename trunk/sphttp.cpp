@@ -182,6 +182,8 @@ int SP_HttpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 
 	const char * keepAlive = httpResponse.getHeaderValue( SP_HttpMessage::HEADER_CONNECTION );
 
+	request->setMsgDecoder( new SP_HttpRequestDecoder() );
+
 	return ! ( NULL != keepAlive && 0 == strcasecmp( keepAlive, "Keep-Alive" ) );
 }
 
