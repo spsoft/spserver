@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
+#include <netinet/tcp.h>
 
 #include "spserver.hpp"
 #include "speventcb.hpp"
@@ -140,8 +141,12 @@ int SP_Server :: listen( int * fd )
 	}
 
 	if( 0 == ret ) {
-		int reuseAddr = 1;
-		if( setsockopt( listenFD, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof( reuseAddr ) ) < 0 ) {
+		int flags = 1;
+		if( setsockopt( listenFD, SOL_SOCKET, SO_REUSEADDR, &flags, sizeof( flags ) ) < 0 ) {
+			syslog( LOG_WARNING, "failed to set server socket to reuseaddr" );
+			ret = -1;
+		}
+		if( setsockopt( listenFD, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) ) < 0 ) {
 			syslog( LOG_WARNING, "failed to set server socket to reuseaddr" );
 			ret = -1;
 		}

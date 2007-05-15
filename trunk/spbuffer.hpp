@@ -21,7 +21,7 @@ public:
 	void erase( int len );
 	void reset();
 	const void * getBuffer() const;
-	int getSize() const;
+	size_t getSize() const;
 	int take( char * buffer, int len );
 
 	char * getLine();

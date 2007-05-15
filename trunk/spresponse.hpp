@@ -16,6 +16,7 @@
 class SP_Buffer;
 struct evbuffer;
 class SP_ArrayList;
+class SP_MsgBlockList;
 
 typedef struct tagSP_Sid {
 	uint16_t mKey;
@@ -47,7 +48,11 @@ public:
 	~SP_Message();
 
 	SP_SidList * getToList();
+
+	size_t getTotalSize();
+
 	SP_Buffer * getMsg();
+	SP_MsgBlockList * getFollowBlockList();
 
 	SP_SidList * getSuccess();
 	SP_SidList * getFailure();
@@ -60,7 +65,9 @@ private:
 	SP_Message & operator=( SP_Message & );
 
 	SP_Sid_t mFromSid;
+
 	SP_Buffer * mMsg;
+	SP_MsgBlockList * mFollowBlockList;
 
 	SP_SidList * mToList;
 	SP_SidList * mSuccess;

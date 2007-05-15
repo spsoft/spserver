@@ -60,11 +60,15 @@ int SP_Buffer :: read( int fd )
 
 const void * SP_Buffer :: getBuffer() const
 {
-	((char*)(EVBUFFER_DATA( mBuffer )))[ getSize() ] = '\0';
-	return EVBUFFER_DATA( mBuffer );
+	if( NULL != EVBUFFER_DATA( mBuffer ) ) {
+		((char*)(EVBUFFER_DATA( mBuffer )))[ getSize() ] = '\0';
+		return EVBUFFER_DATA( mBuffer );
+	} else {
+		return "";
+	}
 }
 
-int SP_Buffer :: getSize() const
+size_t SP_Buffer :: getSize() const
 {
 	return EVBUFFER_LENGTH( mBuffer );
 }
