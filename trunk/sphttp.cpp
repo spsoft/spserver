@@ -191,8 +191,7 @@ int SP_HttpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 	time_t tTime = time( NULL );
 	struct tm tmTime;
 	localtime_r( &tTime, &tmTime );
-	asctime_r( &tmTime, buffer );
-	strtok( buffer, "\r\n" );
+	strftime( buffer, sizeof( buffer ), "%a, %d %b %Y %H:%M:%d %Z", &tmTime );
 	httpResponse->addHeader( SP_HttpMessage::HEADER_DATE, buffer );
 
 	// check Content-Type header

@@ -10,6 +10,24 @@
 #include "sphttpmsg.hpp"
 #include "sputils.hpp"
 
+static char * sp_strsep(char **s, const char *del)
+{
+	char *d, *tok;
+
+	if (!s || !*s) return NULL;
+	tok = *s;
+	d = strstr(tok, del);
+
+	if (d) {
+		*s = d + strlen(del);
+		*d = '\0';
+	} else {
+		*s = NULL;
+	}
+
+	return tok;
+}
+
 SP_HttpMsgParser :: SP_HttpMsgParser()
 {
 	mMessage = NULL;
@@ -48,8 +66,8 @@ int SP_HttpMsgParser :: parseStartLine( SP_HttpMessage ** message,
 		pos = line;
 
 		char * first, * second;
-		first = strsep( &pos, " " );
-		second = strsep( &pos, " " );
+		first = sp_strsep( &pos, " " );
+		second = sp_strsep( &pos, " " );
 
 		if( 0 == strncasecmp( line, "HTTP", 4 ) ) {
 			SP_HttpResponse * response = new SP_HttpResponse();
@@ -61,13 +79,13 @@ int SP_HttpMsgParser :: parseStartLine( SP_HttpMessage ** message,
 		} else {
 			SP_HttpRequest * request = new SP_HttpRequest();
 			if( NULL != first ) request->setMethod( first );
-			if( NULL != second ) request->setURI( strsep( &second, "?" ) );
+			if( NULL != second ) request->setURI( sp_strsep( &second, "?" ) );
 			if( NULL != pos ) request->setVersion( strtok( pos, "\r\n" ) );
 
 			char * params = second;
 			for( ; NULL != params && '\0' != *params; ) {
-				char * value = strsep( &params, "&" );
-				char * name = strsep( &value, "=" );
+				char * value = sp_strsep( &params, "&" );
+				char * name = sp_strsep( &value, "=" );
 				request->addParam( name, NULL == value ? "" : value );
 			}
 
@@ -95,7 +113,7 @@ int SP_HttpMsgParser :: parseHeader( SP_HttpMessage * message,
 
 		pos = line;
 
-		char * name = strsep( &pos, ":" );
+		char * name = sp_strsep( &pos, ":" );
 
 		if( NULL != pos ) {
 			pos = strtok( pos, "\r\n" );
@@ -243,8 +261,8 @@ void SP_HttpMsgParser :: postProcess( SP_HttpMessage * message )
 
 			char * params = content;
 			for( ; NULL != params && '\0' != *params; ) {
-				char * value = strsep( &params, "&" );
-				char * name = strsep( &value, "=" );
+				char * value = sp_strsep( &params, "&" );
+				char * name = sp_strsep( &value, "=" );
 				request->addParam( name, NULL == value ? "" : value );
 			}
 
