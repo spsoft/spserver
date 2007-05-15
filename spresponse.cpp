@@ -8,6 +8,7 @@
 #include "spresponse.hpp"
 #include "spbuffer.hpp"
 #include "sputils.hpp"
+#include "spmsgblock.hpp"
 
 //-------------------------------------------------------------------
 
@@ -77,6 +78,7 @@ SP_Message :: SP_Message( int completionKey )
 	mCompletionKey = completionKey;
 
 	mMsg = NULL;
+	mFollowBlockList = NULL;
 
 	mToList = mSuccess = mFailure = NULL;
 }
@@ -85,6 +87,9 @@ SP_Message :: ~SP_Message()
 {
 	if( NULL != mMsg ) delete mMsg;
 	mMsg = NULL;
+
+	if( NULL != mFollowBlockList ) delete mFollowBlockList;
+	mFollowBlockList = NULL;
 
 	if( NULL != mToList ) delete mToList;
 	mToList = NULL;
@@ -103,11 +108,28 @@ SP_SidList * SP_Message :: getToList()
 	return mToList;
 }
 
+size_t SP_Message :: getTotalSize()
+{
+	size_t totalSize = 0;
+
+	if( NULL != mMsg ) totalSize += mMsg->getSize();
+	if( NULL != mFollowBlockList ) totalSize += mFollowBlockList->getTotalSize();
+
+	return totalSize;
+}
+
 SP_Buffer * SP_Message :: getMsg()
 {
 	if( NULL == mMsg ) mMsg = new SP_Buffer();
 
 	return mMsg;
+}
+
+SP_MsgBlockList * SP_Message :: getFollowBlockList()
+{
+	if( NULL == mFollowBlockList ) mFollowBlockList = new SP_MsgBlockList();
+
+	return mFollowBlockList;
 }
 
 SP_SidList * SP_Message :: getSuccess()

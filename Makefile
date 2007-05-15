@@ -24,7 +24,7 @@ LDFLAGS += $(LIBEVENT_LIB) -lpthread -lresolv
 #--------------------------------------------------------------------
 
 LIBOBJS = sputils.o spthreadpool.o event_msgqueue.o spbuffer.o sphandler.o \
-	spmsgdecoder.o spresponse.o sprequest.o \
+	spmsgblock.o spmsgdecoder.o spresponse.o sprequest.o \
 	spexecutor.o spsession.o speventcb.o spserver.o \
 	sphttpmsg.o sphttp.o
 

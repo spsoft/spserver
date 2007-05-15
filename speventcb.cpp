@@ -22,6 +22,7 @@
 #include "spmsgdecoder.hpp"
 #include "sputils.hpp"
 #include "sprequest.hpp"
+#include "spmsgblock.hpp"
 
 #include "config.h"
 #include "event_msgqueue.h"
@@ -235,7 +236,7 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 
 		SP_SidList * sidList = msg->getToList();
 
-		if( msg->getMsg()->getSize() > 0 ) {
+		if( msg->getTotalSize() > 0 ) {
 			for( int i = sidList->getCount() - 1; i >= 0; i-- ) {
 				SP_Sid_t sid = sidList->get( i );
 				session = manager->get( sid.mKey, &seq );
@@ -496,46 +497,67 @@ void SP_EventHelper :: completion( void * arg )
 
 int SP_EventHelper :: transmit( SP_Session * session, int fd )
 {
-	const static int SP_MAX_IOV = 8;
+	const static int SP_MAX_IOV = IOV_MAX;
 
 	SP_EventArg_t * eventArg = (SP_EventArg_t*)session->getArg();
 
 	SP_ArrayList * outList = session->getOutList();
-	int outOffset = session->getOutOffset();
+	size_t outOffset = session->getOutOffset();
 
-	int iovSize = outList->getCount() > SP_MAX_IOV ? SP_MAX_IOV : outList->getCount();
+	SP_ArrayList iovList( SP_MAX_IOV );
 
-	struct iovec iov[ SP_MAX_IOV ];
-	memset( &iov, 0, sizeof( iov ) );
-
-	for( int i = 0; i < iovSize; i++ ) {
+	for( int i = 0; i < outList->getCount() && iovList.getCount() < SP_MAX_IOV; i++ ) {
 		SP_Message * msg = (SP_Message*)outList->getItem( i );
 
-		iov[i].iov_base = (char*)msg->getMsg()->getBuffer();
-		iov[i].iov_len = msg->getMsg()->getSize();
-	}
-
-	for( int i = 0; i < iovSize && outOffset > 0; i++ ) {
-		if( outOffset >= (int)iov[i].iov_len ) {
-			outOffset -= iov[i].iov_len;
-			iov[i].iov_len = 0;
+		if( outOffset >= msg->getMsg()->getSize() ) {
+			outOffset -= msg->getMsg()->getSize();
 		} else {
-			iov[i].iov_base = (char*)(iov[i].iov_base) + outOffset;
-			iov[i].iov_len -= outOffset;
+			struct iovec * iov = (struct iovec*)malloc( sizeof( struct iovec ) );
+			iov->iov_base = (char*)msg->getMsg()->getBuffer() + outOffset;
+			iov->iov_len = msg->getMsg()->getSize() - outOffset;
 			outOffset = 0;
+
+			iovList.append( iov );
+		}
+
+		SP_MsgBlockList * blockList = msg->getFollowBlockList();
+		for( int j = 0; j < blockList->getCount(); j++ ) {
+			SP_MsgBlock * block = (SP_MsgBlock*)blockList->getItem( j );
+
+			if( outOffset >= block->getSize() ) {
+				outOffset -= block->getSize();
+			} else {
+				struct iovec * iov = (struct iovec*)malloc( sizeof( struct iovec ) );
+				iov->iov_base = (char*)block->getData() + outOffset;
+				iov->iov_len = block->getSize() - outOffset;
+				outOffset = 0;
+
+				iovList.append( iov );
+			}
 		}
 	}
 
-	int len = writev( fd, iov, iovSize );
+	struct iovec iovArray[ SP_MAX_IOV ];
+	memset( iovArray, 0, sizeof( iovArray ) );
+	int iovSize = iovList.getCount() > SP_MAX_IOV ? SP_MAX_IOV : iovList.getCount();
+
+	for( int i = 0; i < iovSize; i++ ) {
+		struct iovec * iov = (struct iovec * )iovList.getItem( i );
+		iovArray[i].iov_base = iov->iov_base;
+		iovArray[i].iov_len = iov->iov_len;
+		free( iov );
+	}
+
+	int len = writev( fd, iovArray, iovSize );
 
 	if( len > 0 ) {
 		outOffset = session->getOutOffset() + len;
 
 		for( ; outList->getCount() > 0; ) {
 			SP_Message * msg = (SP_Message*)outList->getItem( 0 );
-			if( outOffset >= msg->getMsg()->getSize() ) {
-				SP_Message * msg = (SP_Message*)outList->takeItem( 0 );
-				outOffset = outOffset - msg->getMsg()->getSize();
+			if( outOffset >= msg->getTotalSize() ) {
+				msg = (SP_Message*)outList->takeItem( 0 );
+				outOffset = outOffset - msg->getTotalSize();
 
 				int index = msg->getToList()->find( session->getSid() );
 				if( index >= 0 ) msg->getToList()->take( index );
@@ -551,6 +573,8 @@ int SP_EventHelper :: transmit( SP_Session * session, int fd )
 
 		session->setOutOffset( outOffset );
 	}
+
+	if( len > 0 && outList->getCount() > 0 ) transmit( session, fd );
 
 	return len;
 }

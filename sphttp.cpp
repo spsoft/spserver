@@ -12,6 +12,7 @@
 #include "spbuffer.hpp"
 #include "sprequest.hpp"
 #include "spresponse.hpp"
+#include "spmsgblock.hpp"
 
 SP_HttpHandler :: ~SP_HttpHandler()
 {
@@ -77,6 +78,42 @@ const void * SP_HttpRequestDecoder :: getMsg()
 
 //---------------------------------------------------------
 
+class SP_HttpResponseMsgBlock : public SP_MsgBlock {
+public:
+	SP_HttpResponseMsgBlock( SP_HttpResponse * response );
+	virtual ~SP_HttpResponseMsgBlock();
+
+	virtual const void * getData() const;
+	virtual size_t getSize() const;
+
+private:
+	SP_HttpResponse * mResponse;
+};
+
+
+SP_HttpResponseMsgBlock :: SP_HttpResponseMsgBlock( SP_HttpResponse * response )
+{
+	mResponse = response;
+}
+
+SP_HttpResponseMsgBlock :: ~SP_HttpResponseMsgBlock()
+{
+	if( NULL != mResponse ) delete mResponse;
+	mResponse = NULL;
+}
+
+const void * SP_HttpResponseMsgBlock :: getData() const
+{
+	return mResponse->getContent();
+}
+
+size_t SP_HttpResponseMsgBlock :: getSize() const
+{
+	return mResponse->getContentLength();
+}
+
+//---------------------------------------------------------
+
 class SP_HttpHandlerAdapter : public SP_Handler {
 public:
 	SP_HttpHandlerAdapter( SP_HttpHandler * handler );
@@ -123,64 +160,65 @@ int SP_HttpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 
 	httpRequest->setClinetIP( request->getClientIP() );
 
-	SP_HttpResponse httpResponse;
-	httpResponse.setVersion( httpRequest->getVersion() );
+	SP_HttpResponse * httpResponse = new SP_HttpResponse();
+	httpResponse->setVersion( httpRequest->getVersion() );
 
-	mHandler->handle( httpRequest, &httpResponse );
+	mHandler->handle( httpRequest, httpResponse );
 
 	SP_Buffer * reply = response->getReply()->getMsg();
 
 	char buffer[ 512 ] = { 0 };
-	snprintf( buffer, sizeof( buffer ), "%s %i %s\r\n", httpResponse.getVersion(),
-		httpResponse.getStatusCode(), httpResponse.getReasonPhrase() );
+	snprintf( buffer, sizeof( buffer ), "%s %i %s\r\n", httpResponse->getVersion(),
+		httpResponse->getStatusCode(), httpResponse->getReasonPhrase() );
 	reply->append( buffer );
 
 	// check keep alive header
 	if( httpRequest->isKeepAlive() ) {
-		if( NULL == httpResponse.getHeaderValue( SP_HttpMessage::HEADER_CONNECTION ) ) {
-			httpResponse.addHeader( SP_HttpMessage::HEADER_CONNECTION, "Keep-Alive" );
+		if( NULL == httpResponse->getHeaderValue( SP_HttpMessage::HEADER_CONNECTION ) ) {
+			httpResponse->addHeader( SP_HttpMessage::HEADER_CONNECTION, "Keep-Alive" );
 		}
 	}
 
 	// check Content-Length header
-	httpResponse.removeHeader( SP_HttpMessage::HEADER_CONTENT_LENGTH );
-	if( httpResponse.getContentLength() > 0 ) {
-		snprintf( buffer, sizeof( buffer ), "%d", httpResponse.getContentLength() );
-		httpResponse.addHeader( SP_HttpMessage::HEADER_CONTENT_LENGTH, buffer );
+	httpResponse->removeHeader( SP_HttpMessage::HEADER_CONTENT_LENGTH );
+	if( httpResponse->getContentLength() > 0 ) {
+		snprintf( buffer, sizeof( buffer ), "%d", httpResponse->getContentLength() );
+		httpResponse->addHeader( SP_HttpMessage::HEADER_CONTENT_LENGTH, buffer );
 	}
 
 	// check date header
-	httpResponse.removeHeader( SP_HttpMessage::HEADER_DATE );
+	httpResponse->removeHeader( SP_HttpMessage::HEADER_DATE );
 	time_t tTime = time( NULL );
 	struct tm tmTime;
 	localtime_r( &tTime, &tmTime );
 	asctime_r( &tmTime, buffer );
 	strtok( buffer, "\r\n" );
-	httpResponse.addHeader( SP_HttpMessage::HEADER_DATE, buffer );
+	httpResponse->addHeader( SP_HttpMessage::HEADER_DATE, buffer );
 
 	// check Content-Type header
-	if( NULL == httpResponse.getHeaderValue( SP_HttpMessage::HEADER_CONTENT_TYPE ) ) {
-		httpResponse.addHeader( SP_HttpMessage::HEADER_CONTENT_TYPE,
+	if( NULL == httpResponse->getHeaderValue( SP_HttpMessage::HEADER_CONTENT_TYPE ) ) {
+		httpResponse->addHeader( SP_HttpMessage::HEADER_CONTENT_TYPE,
 			"text/html; charset=ISO-8859-1" );
 	}
 
 	// check Server header
-	httpResponse.removeHeader( SP_HttpMessage::HEADER_SERVER );
-	httpResponse.addHeader( SP_HttpMessage::HEADER_SERVER, "sphttp/spserver" );
+	httpResponse->removeHeader( SP_HttpMessage::HEADER_SERVER );
+	httpResponse->addHeader( SP_HttpMessage::HEADER_SERVER, "sphttp/spserver" );
 
-	for( int i = 0; i < httpResponse.getHeaderCount(); i++ ) {
+	for( int i = 0; i < httpResponse->getHeaderCount(); i++ ) {
 		snprintf( buffer, sizeof( buffer ), "%s: %s\r\n",
-			httpResponse.getHeaderName( i ), httpResponse.getHeaderValue( i ) );
+			httpResponse->getHeaderName( i ), httpResponse->getHeaderValue( i ) );
 		reply->append( buffer );
 	}
 
 	reply->append( "\r\n" );	
 
-	if( NULL != httpResponse.getContent() ) {
-		reply->append( httpResponse.getContent(), httpResponse.getContentLength() );
+	if( NULL != httpResponse->getContent() ) {
+		response->getReply()->getFollowBlockList()->append(
+				new SP_HttpResponseMsgBlock( httpResponse ) );
 	}
 
-	const char * keepAlive = httpResponse.getHeaderValue( SP_HttpMessage::HEADER_CONNECTION );
+	const char * keepAlive = httpResponse->getHeaderValue( SP_HttpMessage::HEADER_CONNECTION );
 
 	request->setMsgDecoder( new SP_HttpRequestDecoder() );
 
