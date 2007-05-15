@@ -497,7 +497,11 @@ void SP_EventHelper :: completion( void * arg )
 
 int SP_EventHelper :: transmit( SP_Session * session, int fd )
 {
+#ifdef IOV_MAX
 	const static int SP_MAX_IOV = IOV_MAX;
+#else
+	const static int SP_MAX_IOV = 8;
+#endif
 
 	SP_EventArg_t * eventArg = (SP_EventArg_t*)session->getArg();
 
