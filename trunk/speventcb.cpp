@@ -12,6 +12,8 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "speventcb.hpp"
 #include "spsession.hpp"
@@ -508,48 +510,34 @@ int SP_EventHelper :: transmit( SP_Session * session, int fd )
 	SP_ArrayList * outList = session->getOutList();
 	size_t outOffset = session->getOutOffset();
 
-	SP_ArrayList iovList( SP_MAX_IOV );
+	struct iovec iovArray[ SP_MAX_IOV ];
+	memset( iovArray, 0, sizeof( iovArray ) );
 
-	for( int i = 0; i < outList->getCount() && iovList.getCount() < SP_MAX_IOV; i++ ) {
+	int iovSize = 0;
+
+	for( int i = 0; i < outList->getCount() && iovSize < SP_MAX_IOV; i++ ) {
 		SP_Message * msg = (SP_Message*)outList->getItem( i );
 
 		if( outOffset >= msg->getMsg()->getSize() ) {
 			outOffset -= msg->getMsg()->getSize();
 		} else {
-			struct iovec * iov = (struct iovec*)malloc( sizeof( struct iovec ) );
-			iov->iov_base = (char*)msg->getMsg()->getBuffer() + outOffset;
-			iov->iov_len = msg->getMsg()->getSize() - outOffset;
+			iovArray[ iovSize ].iov_base = (char*)msg->getMsg()->getBuffer() + outOffset;
+			iovArray[ iovSize++ ].iov_len = msg->getMsg()->getSize() - outOffset;
 			outOffset = 0;
-
-			iovList.append( iov );
 		}
 
 		SP_MsgBlockList * blockList = msg->getFollowBlockList();
-		for( int j = 0; j < blockList->getCount(); j++ ) {
+		for( int j = 0; j < blockList->getCount() && iovSize < SP_MAX_IOV; j++ ) {
 			SP_MsgBlock * block = (SP_MsgBlock*)blockList->getItem( j );
 
 			if( outOffset >= block->getSize() ) {
 				outOffset -= block->getSize();
 			} else {
-				struct iovec * iov = (struct iovec*)malloc( sizeof( struct iovec ) );
-				iov->iov_base = (char*)block->getData() + outOffset;
-				iov->iov_len = block->getSize() - outOffset;
+				iovArray[ iovSize ].iov_base = (char*)block->getData() + outOffset;
+				iovArray[ iovSize++ ].iov_len = block->getSize() - outOffset;
 				outOffset = 0;
-
-				iovList.append( iov );
 			}
 		}
-	}
-
-	struct iovec iovArray[ SP_MAX_IOV ];
-	memset( iovArray, 0, sizeof( iovArray ) );
-	int iovSize = iovList.getCount() > SP_MAX_IOV ? SP_MAX_IOV : iovList.getCount();
-
-	for( int i = 0; i < iovSize; i++ ) {
-		struct iovec * iov = (struct iovec * )iovList.getItem( i );
-		iovArray[i].iov_base = iov->iov_base;
-		iovArray[i].iov_len = iov->iov_len;
-		free( iov );
 	}
 
 	int len = writev( fd, iovArray, iovSize );
