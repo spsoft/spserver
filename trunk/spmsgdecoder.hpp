@@ -15,8 +15,6 @@ public:
 	enum { eOK, eMoreData };
 
 	virtual int decode( SP_Buffer * inBuffer ) = 0;
-
-	virtual const void * getMsg() = 0;
 };
 
 class SP_DefaultMsgDecoder : public SP_MsgDecoder {
@@ -27,8 +25,7 @@ public:
 	// always return SP_MsgDecoder::eOK, move buffer from inBuffer to mBuffer
 	virtual int decode( SP_Buffer * inBuffer );
 
-	// return <SP_Buffer *>
-	virtual const void * getMsg();
+	SP_Buffer * getMsg();
 
 private:
 	SP_Buffer * mBuffer;
@@ -42,8 +39,7 @@ public:
 	// return SP_MsgDecoder::eMoreData until meet <CRLF>
 	virtual int decode( SP_Buffer * inBuffer );
 
-	// return <char *>
-	virtual const void * getMsg();
+	const char * getMsg();
 
 private:
 	char * mLine;
@@ -57,8 +53,7 @@ public:
 	// return SP_MsgDecoder::eMoreData until meet <CRLF>.<CRLF>
 	virtual int decode( SP_Buffer * inBuffer );
 
-	// return <char *>
-	const void * getMsg();
+	const char * getMsg();
 
 private:
 	char * mBuffer;
