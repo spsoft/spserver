@@ -68,7 +68,7 @@ int SP_SmtpHandler :: handle( SP_Request * request, SP_Response * response )
 	int ret = 0;
 
 	// request->getMsgDecoder will return the arg of request->setMsgDecoder
-	const char * line = (char*)request->getMsgDecoder()->getMsg();
+	const char * line = ((SP_LineMsgDecoder*)(request->getMsgDecoder()))->getMsg();
 
 	SP_Buffer * outBuffer = response->getReply()->getMsg();
 

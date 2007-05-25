@@ -39,7 +39,7 @@ int SP_DefaultMsgDecoder :: decode( SP_Buffer * inBuffer )
 	return eOK;
 }
 
-const void * SP_DefaultMsgDecoder :: getMsg()
+SP_Buffer * SP_DefaultMsgDecoder :: getMsg()
 {
 	return mBuffer;
 }
@@ -67,7 +67,7 @@ int SP_LineMsgDecoder :: decode( SP_Buffer * inBuffer )
 	return NULL == mLine ? eMoreData : eOK;
 }
 
-const void * SP_LineMsgDecoder :: getMsg()
+const char * SP_LineMsgDecoder :: getMsg()
 {
 	return mLine;
 }
@@ -125,7 +125,7 @@ int SP_DotTermMsgDecoder :: decode( SP_Buffer * inBuffer )
 	}
 }
 
-const void * SP_DotTermMsgDecoder :: getMsg()
+const char * SP_DotTermMsgDecoder :: getMsg()
 {
 	return mBuffer;
 }

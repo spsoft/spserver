@@ -42,7 +42,7 @@ public:
 
 	virtual int decode( SP_Buffer * inBuffer );
 
-	virtual const void * getMsg();
+	SP_HttpRequest * getMsg();
 
 private:
 	SP_HttpMsgParser * mParser;
@@ -71,7 +71,7 @@ int SP_HttpRequestDecoder :: decode( SP_Buffer * inBuffer )
 	}
 }
 
-const void * SP_HttpRequestDecoder :: getMsg()
+SP_HttpRequest * SP_HttpRequestDecoder :: getMsg()
 {
 	return mParser->getRequest();
 }
