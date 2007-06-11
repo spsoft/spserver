@@ -94,7 +94,6 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 void SP_EventCallback :: onRead( int fd, short events, void * arg )
 {
 	SP_Session * session = (SP_Session*)arg;
-	SP_MsgDecoder * decoder = session->getRequest()->getMsgDecoder();
 
 	SP_Sid_t sid = session->getSid();
 
@@ -103,6 +102,7 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 
 		if( len > 0 ) {
 			if( 0 == session->getRunning() ) {
+				SP_MsgDecoder * decoder = session->getRequest()->getMsgDecoder();
 				if( SP_MsgDecoder::eOK == decoder->decode( session->getInBuffer() ) ) {
 					SP_EventHelper::doWork( session );
 				}
@@ -132,7 +132,7 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 {
 	SP_Session * session = (SP_Session*)arg;
-	SP_MsgDecoder * decoder = session->getRequest()->getMsgDecoder();
+
 	SP_Handler * handler = session->getHandler();
 	SP_EventArg_t * eventArg = (SP_EventArg_t*)session->getArg();
 
@@ -187,6 +187,7 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 
 		if( 0 == ret ) {
 			if( 0 == session->getRunning() ) {
+				SP_MsgDecoder * decoder = session->getRequest()->getMsgDecoder();
 				if( SP_MsgDecoder::eOK == decoder->decode( session->getInBuffer() ) ) {
 					SP_EventHelper::doWork( session );
 				}
