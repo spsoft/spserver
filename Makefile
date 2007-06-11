@@ -3,9 +3,9 @@
 
 CC = gcc
 AR = ar cru
-CFLAGS = -Wall -D_REENTRANT -D_GNU_SOURCE -g
-SOFLAGS = -shared -fPIC
-LDFLAGS =
+CFLAGS = -Wall -D_REENTRANT -D_GNU_SOURCE -g -fPIC
+SOFLAGS = -shared
+LDFLAGS = -lstdc++
 
 LINKER = $(CC)
 LINT = lint -c
@@ -16,7 +16,7 @@ ifeq ($(origin version), undefined)
 endif
 
 LIBEVENT_INCL = -I../libevent/
-LIBEVENT_LIB  = -L./ -levent
+LIBEVENT_LIB  = -L../libevent -levent
 
 CFLAGS  += $(LIBEVENT_INCL)
 LDFLAGS += $(LIBEVENT_LIB) -lpthread -lresolv
