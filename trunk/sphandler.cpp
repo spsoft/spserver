@@ -18,13 +18,18 @@ SP_CompletionHandler :: ~SP_CompletionHandler()
 
 //---------------------------------------------------------
 
-class SP_DefaultCompletionHandler : public SP_CompletionHandler {
-public:
-	SP_DefaultCompletionHandler(){}
-	~SP_DefaultCompletionHandler(){}
+SP_DefaultCompletionHandler :: SP_DefaultCompletionHandler()
+{
+}
 
-	virtual void completionMessage( SP_Message * msg ) { delete msg; }
-};
+SP_DefaultCompletionHandler :: ~SP_DefaultCompletionHandler()
+{
+}
+
+void SP_DefaultCompletionHandler :: completionMessage( SP_Message * msg )
+{
+	delete msg;
+}
 
 //---------------------------------------------------------
 

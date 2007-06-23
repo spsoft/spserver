@@ -12,7 +12,7 @@ LINT = lint -c
 RM = /bin/rm -f
 
 ifeq ($(origin version), undefined)
-	version = 0.1
+	version = 0.5
 endif
 
 LIBEVENT_INCL = -I../libevent/
@@ -25,12 +25,12 @@ LDFLAGS += $(LIBEVENT_LIB) -lpthread -lresolv
 
 LIBOBJS = sputils.o spthreadpool.o event_msgqueue.o spbuffer.o sphandler.o \
 	spmsgblock.o spmsgdecoder.o spresponse.o sprequest.o \
-	spexecutor.o spsession.o speventcb.o spserver.o \
+	spexecutor.o spsession.o speventcb.o spserver.o spdispatcher.o \
 	sphttpmsg.o sphttp.o
 
 TARGET =  libspserver.so \
 		testecho testthreadpool testsmtp testchat teststress testhttp \
-		testhttpmsg
+		testhttpmsg testdispatcher
 
 #--------------------------------------------------------------------
 
@@ -59,6 +59,9 @@ testhttp: testhttp.o
 
 testhttpmsg: sputils.o sphttpmsg.o testhttpmsg.o
 	$(LINKER) $(LDFLAGS) $^ -o $@
+
+testdispatcher: testdispatcher.o
+	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
 
 dist: clean spserver-$(version).src.tar.gz
 

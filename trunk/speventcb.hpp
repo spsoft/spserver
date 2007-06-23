@@ -18,20 +18,26 @@ class SP_Message;
 struct event_base;
 
 typedef struct tagSP_EventArg {
-	SP_HandlerFactory * mHandlerFactory;
-	SP_Executor * mExecutor;
-	SP_SessionManager * mSessionManager;
 	struct event_base * mEventBase;
 	void * mResponseQueue;
 
-	SP_CompletionHandler * mCompletionHandler;
+	SP_Executor * mExecutor;
 	SP_Executor * mCompletionExecutor;
 
+	SP_CompletionHandler * mCompletionHandler;
+	SP_SessionManager * mSessionManager;
+
 	int mTimeout;
+} SP_EventArg_t;
+
+typedef struct tagSP_AcceptArg {
+	SP_EventArg_t mEventArg;
+
+	SP_HandlerFactory * mHandlerFactory;
 	int mReqQueueSize;
 	int mMaxConnections;
 	char * mRefusedMsg;
-} SP_EventArg_t;
+} SP_AcceptArg_t;
 
 class SP_EventCallback {
 public:
@@ -41,11 +47,11 @@ public:
 
 	static void onResponse( void * queueData, void * arg );
 
+	static void addEvent( SP_Session * session, short events, int fd );
+
 private:
 	SP_EventCallback();
 	~SP_EventCallback();
-
-	static void addEvent( SP_Session * session, short events, int fd );
 };
 
 class SP_EventHelper {
