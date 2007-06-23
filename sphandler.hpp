@@ -41,6 +41,14 @@ public:
 	virtual void completionMessage( SP_Message * msg ) = 0;
 };
 
+class SP_DefaultCompletionHandler : public SP_CompletionHandler {
+public:
+	SP_DefaultCompletionHandler();
+	~SP_DefaultCompletionHandler();
+
+	virtual void completionMessage( SP_Message * msg );
+};
+
 class SP_HandlerFactory {
 public:
 	virtual ~SP_HandlerFactory();

@@ -147,7 +147,7 @@ int SP_Server :: listen( int * fd )
 			ret = -1;
 		}
 		if( setsockopt( listenFD, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) ) < 0 ) {
-			syslog( LOG_WARNING, "failed to set server socket to reuseaddr" );
+			syslog( LOG_WARNING, "failed to set server socket to nodelay" );
 			ret = -1;
 		}
 	}
@@ -199,41 +199,43 @@ int SP_Server :: start()
 	ret = listen( &listenFD );
 
 	if( 0 == ret ) {
-		SP_EventArg_t eventArg;
+		SP_AcceptArg_t acceptArg;
+		memset( &acceptArg, 0, sizeof( SP_AcceptArg_t ) );
 
-		eventArg.mEventBase = (struct event_base*)event_init();
+		acceptArg.mEventArg.mEventBase = (struct event_base*)event_init();
 
 		// Clean close on SIGINT or SIGTERM.
 		struct event evSigInt, evSigTerm;
 		signal_set( &evSigInt, SIGINT,  sigHandler, this );
-		event_base_set( eventArg.mEventBase, &evSigInt );
+		event_base_set( acceptArg.mEventArg.mEventBase, &evSigInt );
 		signal_add( &evSigInt, NULL);
 		signal_set( &evSigTerm, SIGTERM, sigHandler, this );
-		event_base_set( eventArg.mEventBase, &evSigTerm );
+		event_base_set( acceptArg.mEventArg.mEventBase, &evSigTerm );
 		signal_add( &evSigTerm, NULL);
 
-		eventArg.mSessionManager = new SP_SessionManager();
-		eventArg.mResponseQueue = msgqueue_new( eventArg.mEventBase, 0,
-				SP_EventCallback::onResponse, &eventArg );
-		eventArg.mExecutor = new SP_Executor( mMaxThreads, "work" );
-		eventArg.mHandlerFactory = mHandlerFactory;
-		eventArg.mTimeout = mTimeout;
-		eventArg.mReqQueueSize = mReqQueueSize;
-		eventArg.mMaxConnections = mMaxConnections;
-		eventArg.mRefusedMsg = mRefusedMsg;
+		acceptArg.mEventArg.mSessionManager = new SP_SessionManager();
+		acceptArg.mEventArg.mResponseQueue = msgqueue_new( acceptArg.mEventArg.mEventBase, 0,
+				SP_EventCallback::onResponse, &acceptArg.mEventArg );
+		acceptArg.mEventArg.mExecutor = new SP_Executor( mMaxThreads, "work" );
+		acceptArg.mEventArg.mTimeout = mTimeout;
 
-		eventArg.mCompletionHandler = mHandlerFactory->createCompletionHandler();
-		eventArg.mCompletionExecutor = new SP_Executor( 1, "act" );
+		acceptArg.mHandlerFactory = mHandlerFactory;
+		acceptArg.mReqQueueSize = mReqQueueSize;
+		acceptArg.mMaxConnections = mMaxConnections;
+		acceptArg.mRefusedMsg = mRefusedMsg;
+
+		acceptArg.mEventArg.mCompletionHandler = mHandlerFactory->createCompletionHandler();
+		acceptArg.mEventArg.mCompletionExecutor = new SP_Executor( 1, "act" );
 
 		struct event evAccept;
 		event_set( &evAccept, listenFD, EV_READ|EV_PERSIST,
-				SP_EventCallback::onAccept, &eventArg );
-		event_base_set( eventArg.mEventBase, &evAccept );
+				SP_EventCallback::onAccept, &acceptArg );
+		event_base_set( acceptArg.mEventArg.mEventBase, &evAccept );
 		event_add( &evAccept, NULL );
 
 		/* Start the event loop. */
 		while( 0 == mIsShutdown ) {
-			event_base_loop( eventArg.mEventBase, EVLOOP_ONCE );
+			event_base_loop( acceptArg.mEventArg.mEventBase, EVLOOP_ONCE );
 		}
 
 		syslog( LOG_NOTICE, "Server is shutdown." );
@@ -243,14 +245,14 @@ int SP_Server :: start()
 		signal_del( &evSigTerm );
 		signal_del( &evSigInt );
 
-		delete eventArg.mSessionManager;
-		delete eventArg.mExecutor;
+		delete acceptArg.mEventArg.mSessionManager;
+		delete acceptArg.mEventArg.mExecutor;
 
-		delete eventArg.mCompletionHandler;
-		delete eventArg.mCompletionExecutor;
+		delete acceptArg.mEventArg.mCompletionHandler;
+		delete acceptArg.mEventArg.mCompletionExecutor;
 
-		//msgqueue_destroy( (struct event_msgqueue*)eventArg.mResponseQueue );
-		//event_base_free( eventArg.mEventBase );
+		//msgqueue_destroy( (struct event_msgqueue*)acceptArg.mEventArg.mResponseQueue );
+		//event_base_free( acceptArg.mEventArg.mEventBase );
 
 		close( listenFD );
 	}

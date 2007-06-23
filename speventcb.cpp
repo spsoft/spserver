@@ -36,7 +36,8 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 	struct sockaddr_in clientAddr;
 	socklen_t clientLen = sizeof( clientAddr );
 
-	SP_EventArg_t * eventArg = (SP_EventArg_t*)arg;
+	SP_AcceptArg_t * acceptArg = (SP_AcceptArg_t*)arg;
+	SP_EventArg_t * eventArg = &( acceptArg->mEventArg );
 
 	clientFD = accept( fd, (struct sockaddr *)&clientAddr, &clientLen );
 	if( -1 == clientFD ) {
@@ -61,7 +62,7 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 	if( NULL != session ) {
 		eventArg->mSessionManager->put( sid.mKey, session, &sid.mSeq );
 
-		session->setHandler( eventArg->mHandlerFactory->create() );
+		session->setHandler( acceptArg->mHandlerFactory->create() );
 		session->setArg( eventArg );
 
 		event_set( session->getReadEvent(), clientFD, EV_READ, onRead, session );
@@ -70,14 +71,14 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 		addEvent( session, EV_WRITE, clientFD );
 		addEvent( session, EV_READ, clientFD );
 
-		if( eventArg->mSessionManager->getCount() > eventArg->mMaxConnections
-				|| eventArg->mExecutor->getQueueLength() >= eventArg->mReqQueueSize ) {
+		if( eventArg->mSessionManager->getCount() > acceptArg->mMaxConnections
+				|| eventArg->mExecutor->getQueueLength() >= acceptArg->mReqQueueSize ) {
 			syslog( LOG_WARNING, "System busy, session.count %d [%d], queue.length %d [%d]",
-				eventArg->mSessionManager->getCount(), eventArg->mMaxConnections,
-				eventArg->mExecutor->getQueueLength(), eventArg->mReqQueueSize );
+				eventArg->mSessionManager->getCount(), acceptArg->mMaxConnections,
+				eventArg->mExecutor->getQueueLength(), acceptArg->mReqQueueSize );
 
 			SP_Message * msg = new SP_Message();
-			msg->getMsg()->append( eventArg->mRefusedMsg );
+			msg->getMsg()->append( acceptArg->mRefusedMsg );
 			msg->getMsg()->append( "\r\n" );
 			session->getOutList()->append( msg );
 

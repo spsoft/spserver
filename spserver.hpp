@@ -46,7 +46,7 @@ private:
 	int mReqQueueSize;
 	char * mRefusedMsg;
 
-	static void * eventLoop( void * apvArg );
+	static void * eventLoop( void * arg );
 
 	int listen( int * fd );
 	int start();
