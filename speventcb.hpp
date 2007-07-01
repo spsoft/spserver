@@ -77,6 +77,8 @@ public:
 
 	static int setNonblock( int fd );
 
+	static int tcpListen( const char * ip, int port, int * fd, int blocking = 1 );
+
 private:
 	SP_EventHelper();
 	~SP_EventHelper();

@@ -122,66 +122,6 @@ void * SP_Server :: eventLoop( void * arg )
 	return NULL;
 }
 
-int SP_Server :: listen( int * fd )
-{
-	int ret = 0;
-
-	int listenFD = socket( AF_INET, SOCK_STREAM, 0 );
-
-	if( listenFD < 0 ) {
-		syslog( LOG_WARNING, "open socket failed" );
-		ret = -1;
-	}
-
-	if( 0 == ret ) {
-		if( SP_EventHelper::setNonblock( listenFD ) < 0 ) {
-			syslog( LOG_WARNING, "failed to set server socket to non-blocking" );
-			ret = -1;
-		}
-	}
-
-	if( 0 == ret ) {
-		int flags = 1;
-		if( setsockopt( listenFD, SOL_SOCKET, SO_REUSEADDR, &flags, sizeof( flags ) ) < 0 ) {
-			syslog( LOG_WARNING, "failed to set server socket to reuseaddr" );
-			ret = -1;
-		}
-		if( setsockopt( listenFD, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) ) < 0 ) {
-			syslog( LOG_WARNING, "failed to set server socket to nodelay" );
-			ret = -1;
-		}
-	}
-
-	if( 0 == ret ) {
-		struct sockaddr_in listenAddr;
-		memset( &listenAddr, 0, sizeof( listenAddr ) );
-		listenAddr.sin_family = AF_INET;
-		listenAddr.sin_addr.s_addr = INADDR_ANY;
-		listenAddr.sin_port = htons( mPort );
-
-		if( bind( listenFD, (struct sockaddr *)&listenAddr, sizeof( listenAddr ) ) < 0 ) {
-			syslog( LOG_WARNING, "bind failed" );
-			ret = -1;
-		}
-	}
-
-	if( 0 == ret ) {
-		if( ::listen( listenFD, 5 ) < 0 ) {
-			syslog( LOG_WARNING, "listen failed" );
-			ret = -1;
-		}
-	}
-
-	if( 0 != ret && listenFD >= 0 ) close( listenFD );
-
-	if( 0 == ret ) {
-		* fd = listenFD;
-		syslog( LOG_NOTICE, "This server is listening on port [%d].", mPort );
-	}
-
-	return ret;
-}
-
 void SP_Server :: sigHandler( int, short, void * arg )
 {
 	SP_Server * server = (SP_Server*)arg;
@@ -196,7 +136,7 @@ int SP_Server :: start()
 	int ret = 0;
 	int listenFD = -1;
 
-	ret = listen( &listenFD );
+	ret = SP_EventHelper::tcpListen( mBindIP, mPort, &listenFD, 0 );
 
 	if( 0 == ret ) {
 		SP_AcceptArg_t acceptArg;
