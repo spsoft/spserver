@@ -51,8 +51,6 @@ private:
 
 	static void * eventLoop( void * arg );
 
-	static void sigHandler( int, short, void * arg );
-
 	static void onPush( void * queueData, void * arg );
 };
 

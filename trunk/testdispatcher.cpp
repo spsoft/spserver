@@ -18,6 +18,7 @@
 #include "sprequest.hpp"
 #include "spbuffer.hpp"
 #include "spmsgdecoder.hpp"
+#include "speventcb.hpp"
 
 class SP_EchoHandler : public SP_Handler {
 public:
@@ -54,54 +55,6 @@ public:
 	virtual void close() {}
 };
 
-static int sp_listen( int port, int * fd )
-{
-	int ret = 0;
-
-	int listenFd = socket( AF_INET, SOCK_STREAM, 0 );
-	if( listenFd < 0 ) {
-		syslog( LOG_WARNING, "listen failed" );
-		ret = -1;
-	}
-
-	if( 0 == ret ) {
-		int flags = 1;
-		if( setsockopt( listenFd, SOL_SOCKET, SO_REUSEADDR, &flags, sizeof( flags ) ) < 0 ) {
-			syslog( LOG_WARNING, "setsockopt failed" );
-			ret = -1;
-		}
-	}
-
-	struct sockaddr_in addr;
-	memset( &addr, 0, sizeof( addr ) );
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = htons( port );
-
-	if( 0 == ret ) {
-		if( bind( listenFd, (struct sockaddr*)&addr, sizeof( addr ) ) < 0 ) {
-			syslog( LOG_WARNING, "bind failed" );
-			ret = -1;
-		}
-	}
-
-	if( 0 == ret ) {
-		if( listen( listenFd, 5 ) < 0 ) {
-			syslog( LOG_WARNING, "listen failed" );
-			ret = -1;
-		}
-	}
-
-	if( 0 != ret && listenFd >= 0 ) close( listenFd );
-
-	if( 0 == ret ) {
-		* fd = listenFd;
-		syslog( LOG_NOTICE, "Listen on port [%d]", port );
-	}
-
-	return ret;
-}
-
 int main( int argc, char * argv[] )
 {
 	int port = 3333, maxThreads = 10;
@@ -134,7 +87,7 @@ int main( int argc, char * argv[] )
 	const char * refusedMsg = "System busy, try again later.";
 
 	int listenFd = -1;
-	if( 0 == sp_listen( port, &listenFd ) ) {
+	if( 0 == SP_EventHelper::tcpListen( "", port, &listenFd ) ) {
 		SP_Dispatcher dispatcher( new SP_DefaultCompletionHandler(), maxThreads );
 		dispatcher.dispatch();
 
@@ -147,6 +100,7 @@ int main( int argc, char * argv[] )
 				if( dispatcher.getSessionCount() >= maxConnections
 						|| dispatcher.getReqQueueLength() >= reqQueueSize ) {
 					write( fd, refusedMsg, strlen( refusedMsg ) );
+					close( fd );
 				} else {
 					dispatcher.push( fd, new SP_EchoHandler() );
 				}

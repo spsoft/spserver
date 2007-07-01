@@ -48,7 +48,6 @@ private:
 
 	static void * eventLoop( void * arg );
 
-	int listen( int * fd );
 	int start();
 
 	static void sigHandler( int, short, void * arg );

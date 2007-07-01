@@ -145,12 +145,6 @@ int SP_Dispatcher :: start()
 	return 0;
 }
 
-void SP_Dispatcher :: sigHandler( int, short, void * arg )
-{
-	SP_Dispatcher * dispatcher = (SP_Dispatcher*)arg;
-	dispatcher->shutdown();
-}
-
 typedef struct tagSP_PushArg {
 	int mFd;
 	SP_Handler * mHandler;
