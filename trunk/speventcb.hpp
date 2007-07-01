@@ -9,29 +9,41 @@
 #include <netinet/in.h>
 
 class SP_HandlerFactory;
-class SP_Executor;
 class SP_SessionManager;
 class SP_Session;
-class SP_CompletionHandler;
+class SP_BlockingQueue;
 class SP_Message;
 
 struct event_base;
 
-typedef struct tagSP_EventArg {
+class SP_EventArg {
+public:
+	SP_EventArg( int timeout );
+	~SP_EventArg();
+
+	struct event_base * getEventBase() const;
+	void * getResponseQueue() const;
+	SP_BlockingQueue * getInputResultQueue() const;
+	SP_BlockingQueue * getOutputResultQueue() const;
+	SP_SessionManager * getSessionManager() const;
+
+	void setTimeout( int timeout );
+	int getTimeout() const;
+
+private:
 	struct event_base * mEventBase;
 	void * mResponseQueue;
 
-	SP_Executor * mExecutor;
-	SP_Executor * mCompletionExecutor;
+	SP_BlockingQueue * mInputResultQueue;
+	SP_BlockingQueue * mOutputResultQueue;
 
-	SP_CompletionHandler * mCompletionHandler;
 	SP_SessionManager * mSessionManager;
 
 	int mTimeout;
-} SP_EventArg_t;
+};
 
 typedef struct tagSP_AcceptArg {
-	SP_EventArg_t mEventArg;
+	SP_EventArg * mEventArg;
 
 	SP_HandlerFactory * mHandlerFactory;
 	int mReqQueueSize;
@@ -68,8 +80,7 @@ public:
 	static void doTimeout( SP_Session * session );
 	static void timeout( void * arg );
 
-	static void doCompletion( SP_EventArg_t * eventArg, SP_Message * msg );
-	static void completion( void * arg );
+	static void doCompletion( SP_EventArg * eventArg, SP_Message * msg );
 
 	static int transmit( SP_Session * session, int fd );
 

@@ -15,6 +15,7 @@
 #include "spbuffer.hpp"
 
 #include "spserver.hpp"
+#include "splfserver.hpp"
 #include "sphandler.hpp"
 #include "spresponse.hpp"
 #include "sprequest.hpp"
@@ -293,11 +294,12 @@ SP_CompletionHandler * SP_ChatHandlerFactory :: createCompletionHandler() const
 int main( int argc, char * argv[] )
 {
 	int port = 5555, maxThreads = 10;
+	const char * serverType = "hahs";
 
 	extern char *optarg ;
 	int c ;
 
-	while( ( c = getopt ( argc, argv, "p:t:v" )) != EOF ) {
+	while( ( c = getopt ( argc, argv, "p:t:s:v" )) != EOF ) {
 		switch ( c ) {
 			case 'p' :
 				port = atoi( optarg );
@@ -305,9 +307,12 @@ int main( int argc, char * argv[] )
 			case 't':
 				maxThreads = atoi( optarg );
 				break;
+			case 's':
+				serverType = optarg;
+				break;
 			case '?' :
 			case 'v' :
-				printf( "Usage: %s [-p <port>] [-t <threads>]\n", argv[0] );
+				printf( "Usage: %s [-p <port>] [-t <threads>] [-s <hahs|lf>]\n", argv[0] );
 				exit( 0 );
 		}
 	}
@@ -320,13 +325,23 @@ int main( int argc, char * argv[] )
 
 	SP_OnlineSidList onlineSidList;
 
-	SP_Server server( "", port, new SP_ChatHandlerFactory( &onlineSidList ) );
+	if( 0 == strcasecmp( serverType, "hahs" ) ) {
+		SP_Server server( "", port, new SP_ChatHandlerFactory( &onlineSidList ) );
 
-	server.setTimeout( 60 );
-	server.setMaxThreads( maxThreads );
-	server.setReqQueueSize( 100, "Sorry, server is busy now!\n" );
+		server.setTimeout( 60 );
+		server.setMaxThreads( maxThreads );
+		server.setReqQueueSize( 100, "Sorry, server is busy now!\n" );
 
-	server.runForever();
+		server.runForever();
+	} else {
+		SP_LFServer server( "", port, new SP_ChatHandlerFactory( &onlineSidList ) );
+
+		server.setTimeout( 60 );
+		server.setMaxThreads( maxThreads );
+		server.setReqQueueSize( 100, "Sorry, server is busy now!\n" );
+
+		server.runForever();
+	}
 
 	closelog();
 

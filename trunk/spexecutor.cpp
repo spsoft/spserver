@@ -23,22 +23,6 @@ SP_Task :: ~SP_Task()
 
 //===================================================================
 
-class SP_SimpleTask : public SP_Task {
-public:
-	typedef void ( * ThreadFunc_t ) ( void * );
-
-	SP_SimpleTask( ThreadFunc_t func, void * arg, int deleteAfterRun );
-	virtual ~SP_SimpleTask();
-
-	virtual void run();
-
-private:
-	ThreadFunc_t mFunc;
-	void * mArg;
-
-	int mDeleteAfterRun;
-};
-
 SP_SimpleTask :: SP_SimpleTask( ThreadFunc_t func, void * arg, int deleteAfterRun )
 {
 	mFunc = func;

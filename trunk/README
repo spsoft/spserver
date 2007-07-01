@@ -4,26 +4,30 @@
 
 spserver is a TCP server framework library written in C++ based on libevent.
 
-spserver is an implementation of Half-Sync/Half-Async pattern.
+spserver implements the Half-Sync/Half-Async and the Leader/Follower patterns.
 
-More detail about Half-Sync/Half-Async pattern:
+More detail about the Half-Sync/Half-Async and Leader/Follower patterns:
 
 	http://www.cs.wustl.edu/~schmidt/PDF/HS-HA.pdf
+	http://www.cs.wustl.edu/~schmidt/PDF/lf.pdf
 
 Code description:
 
-  SP_Server, SP_EventCallback, SP_Session, SP_Request(SP_MsgDecoder), SP_Response(SP_Message)
-    The asynchronous layer, which receives the asynchronous requests
+  SP_Server class implements the Half-Sync/Half-Async pattern.
 
-  SP_Executor::mQueue
-    The queueing layer, which buffers the requests
+    SP_Server, SP_EventCallback, SP_Session, SP_Request(SP_MsgDecoder), SP_Response(SP_Message)
+      The asynchronous layer, which receives the asynchronous requests
 
-  SP_Executor::mThreadPool, SP_Handler
-    The synchronous layer, which contains several threads of control blocked
-    on the queueing layer
+    SP_EventArg::mInputResultQueue, SP_EventArg::mOutputResultQueue
+      The queueing layer, which buffers the requests
 
-The spserver code was developed under Linux, but has also been tested under
-Solaris.
+    SP_Executor, SP_ThreadPool, SP_Handler
+      The synchronous layer, which contains several threads of control blocked
+      on the queueing layer
+
+  SP_LFServer class implements the Leader/Follower pattern.
+
+The spserver code was developed under Linux, but has also been tested under Solaris.
 
 You can get the code from the spserver home page:
 
