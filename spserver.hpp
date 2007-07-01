@@ -17,6 +17,7 @@ class SP_Executor;
 
 struct event;
 
+// half-sync/half-async thread pool server
 class SP_Server {
 public:
 	SP_Server( const char * bindIP, int port, SP_HandlerFactory * handlerFactory );
@@ -51,6 +52,8 @@ private:
 	int start();
 
 	static void sigHandler( int, short, void * arg );
+
+	static void outputCompleted( void * arg );
 };
 
 #endif

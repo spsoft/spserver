@@ -10,7 +10,7 @@ class SP_CompletionHandler;
 class SP_Handler;
 class SP_Message;
 
-typedef struct tagSP_EventArg SP_EventArg_t;
+class SP_EventArg;
 
 class SP_Dispatcher {
 public:
@@ -42,8 +42,10 @@ public:
 private:
 	int mIsShutdown;
 	int mIsRunning;
+	int mMaxThreads;
 
-	SP_EventArg_t * mEventArg;
+	SP_EventArg * mEventArg;
+	SP_CompletionHandler * mCompletionHandler;
 
 	void * mPushQueue;
 
@@ -52,6 +54,8 @@ private:
 	static void * eventLoop( void * arg );
 
 	static void onPush( void * queueData, void * arg );
+
+	static void outputCompleted( void * arg );
 };
 
 #endif

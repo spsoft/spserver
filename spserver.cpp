@@ -18,6 +18,7 @@
 #include "sphandler.hpp"
 #include "spsession.hpp"
 #include "spexecutor.hpp"
+#include "sputils.hpp"
 
 #include "config.h"
 #include "event_msgqueue.h"
@@ -128,6 +129,16 @@ void SP_Server :: sigHandler( int, short, void * arg )
 	server->shutdown();
 }
 
+void SP_Server :: outputCompleted( void * arg )
+{
+	SP_CompletionHandler * handler = ( SP_CompletionHandler * ) ((void**)arg)[0];
+	SP_Message * msg = ( SP_Message * ) ((void**)arg)[ 1 ];
+
+	handler->completionMessage( msg );
+
+	free( arg );
+}
+
 int SP_Server :: start()
 {
 	/* Don't die with SIGPIPE on remote read shutdown. That's dumb. */
@@ -139,44 +150,58 @@ int SP_Server :: start()
 	ret = SP_EventHelper::tcpListen( mBindIP, mPort, &listenFD, 0 );
 
 	if( 0 == ret ) {
-		SP_AcceptArg_t acceptArg;
-		memset( &acceptArg, 0, sizeof( SP_AcceptArg_t ) );
 
-		acceptArg.mEventArg.mEventBase = (struct event_base*)event_init();
+		SP_EventArg eventArg( mTimeout );
 
 		// Clean close on SIGINT or SIGTERM.
 		struct event evSigInt, evSigTerm;
 		signal_set( &evSigInt, SIGINT,  sigHandler, this );
-		event_base_set( acceptArg.mEventArg.mEventBase, &evSigInt );
+		event_base_set( eventArg.getEventBase(), &evSigInt );
 		signal_add( &evSigInt, NULL);
 		signal_set( &evSigTerm, SIGTERM, sigHandler, this );
-		event_base_set( acceptArg.mEventArg.mEventBase, &evSigTerm );
+		event_base_set( eventArg.getEventBase(), &evSigTerm );
 		signal_add( &evSigTerm, NULL);
 
-		acceptArg.mEventArg.mSessionManager = new SP_SessionManager();
-		acceptArg.mEventArg.mResponseQueue = msgqueue_new( acceptArg.mEventArg.mEventBase, 0,
-				SP_EventCallback::onResponse, &acceptArg.mEventArg );
-		acceptArg.mEventArg.mExecutor = new SP_Executor( mMaxThreads, "work" );
-		acceptArg.mEventArg.mTimeout = mTimeout;
+		SP_AcceptArg_t acceptArg;
+		memset( &acceptArg, 0, sizeof( SP_AcceptArg_t ) );
 
+		acceptArg.mEventArg = &eventArg;
 		acceptArg.mHandlerFactory = mHandlerFactory;
 		acceptArg.mReqQueueSize = mReqQueueSize;
 		acceptArg.mMaxConnections = mMaxConnections;
 		acceptArg.mRefusedMsg = mRefusedMsg;
 
-		acceptArg.mEventArg.mCompletionHandler = mHandlerFactory->createCompletionHandler();
-		acceptArg.mEventArg.mCompletionExecutor = new SP_Executor( 1, "act" );
-
 		struct event evAccept;
 		event_set( &evAccept, listenFD, EV_READ|EV_PERSIST,
 				SP_EventCallback::onAccept, &acceptArg );
-		event_base_set( acceptArg.mEventArg.mEventBase, &evAccept );
+		event_base_set( eventArg.getEventBase(), &evAccept );
 		event_add( &evAccept, NULL );
+
+		SP_Executor workerExecutor( mMaxThreads, "work" );
+		SP_Executor actExecutor( 1, "act" );
+		SP_CompletionHandler * completionHandler = mHandlerFactory->createCompletionHandler();
 
 		/* Start the event loop. */
 		while( 0 == mIsShutdown ) {
-			event_base_loop( acceptArg.mEventArg.mEventBase, EVLOOP_ONCE );
+			event_base_loop( eventArg.getEventBase(), EVLOOP_ONCE );
+
+			for( ; NULL != eventArg.getInputResultQueue()->top(); ) {
+				SP_Task * task = (SP_Task*)eventArg.getInputResultQueue()->pop();
+				workerExecutor.execute( task );
+			}
+
+			for( ; NULL != eventArg.getOutputResultQueue()->top(); ) {
+				SP_Message * msg = (SP_Message*)eventArg.getOutputResultQueue()->pop();
+
+				void ** arg = ( void** )malloc( sizeof( void * ) * 2 );
+				arg[ 0 ] = (void*)completionHandler;
+				arg[ 1 ] = (void*)msg;
+
+				actExecutor.execute( outputCompleted, arg );
+			}
 		}
+
+		delete completionHandler;
 
 		syslog( LOG_NOTICE, "Server is shutdown." );
 
@@ -184,15 +209,6 @@ int SP_Server :: start()
 
 		signal_del( &evSigTerm );
 		signal_del( &evSigInt );
-
-		delete acceptArg.mEventArg.mSessionManager;
-		delete acceptArg.mEventArg.mExecutor;
-
-		delete acceptArg.mEventArg.mCompletionHandler;
-		delete acceptArg.mEventArg.mCompletionExecutor;
-
-		//msgqueue_destroy( (struct event_msgqueue*)acceptArg.mEventArg.mResponseQueue );
-		//event_base_free( acceptArg.mEventArg.mEventBase );
 
 		close( listenFD );
 	}

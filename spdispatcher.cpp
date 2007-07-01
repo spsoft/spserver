@@ -19,6 +19,7 @@
 #include "sphandler.hpp"
 #include "spsession.hpp"
 #include "spexecutor.hpp"
+#include "sputils.hpp"
 
 #include "config.h"
 #include "event_msgqueue.h"
@@ -31,23 +32,13 @@ SP_Dispatcher :: SP_Dispatcher( SP_CompletionHandler * completionHandler, int ma
 	mIsShutdown = 0;
 	mIsRunning = 0;
 
-	mEventArg = (SP_EventArg_t *)malloc( sizeof(SP_EventArg_t) );
-	memset( mEventArg, 0, sizeof( SP_EventArg_t ) );
+	mEventArg = new SP_EventArg( 600 );
 
-	mEventArg->mEventBase = (struct event_base*)event_init();
-	mEventArg->mResponseQueue = msgqueue_new( mEventArg->mEventBase, 0,
-			SP_EventCallback::onResponse, mEventArg );
+	mMaxThreads = maxThreads > 0 ? maxThreads : 64;
 
-	mEventArg->mTimeout = 600;
-	mEventArg->mSessionManager = new SP_SessionManager();
+	mCompletionHandler = completionHandler;
 
-	mEventArg->mCompletionHandler = completionHandler;
-
-	maxThreads = maxThreads > 0 ? maxThreads : 64;
-	mEventArg->mExecutor = new SP_Executor( maxThreads, "work" );
-	mEventArg->mCompletionExecutor = new SP_Executor( 1, "act" );
-
-	mPushQueue = msgqueue_new( mEventArg->mEventBase, 0, onPush, mEventArg );
+	mPushQueue = msgqueue_new( mEventArg->getEventBase(), 0, onPush, mEventArg );
 }
 
 SP_Dispatcher :: ~SP_Dispatcher()
@@ -58,23 +49,15 @@ SP_Dispatcher :: ~SP_Dispatcher()
 
 	for( ; mIsRunning; ) sleep( 1 );
 
-	delete mEventArg->mCompletionExecutor;
-	delete mEventArg->mExecutor;
-
 	//msgqueue_destroy( (struct event_msgqueue*)mPushQueue );
-	//msgqueue_destroy( (struct event_msgqueue*)mEventArg->mResponseQueue );
-	//event_base_free( mEventArg->mEventBase );
 
-	delete mEventArg->mSessionManager;
-	delete mEventArg->mCompletionHandler;
-
-	free( mEventArg );
+	delete mEventArg;
 	mEventArg = NULL;
 }
 
 void SP_Dispatcher :: setTimeout( int timeout )
 {
-	mEventArg->mTimeout = timeout > 0 ? timeout : mEventArg->mTimeout;
+	mEventArg->setTimeout( timeout );
 }
 
 void SP_Dispatcher :: shutdown()
@@ -89,12 +72,12 @@ int SP_Dispatcher :: isRunning()
 
 int SP_Dispatcher :: getSessionCount()
 {
-	return mEventArg->mSessionManager->getCount();
+	return mEventArg->getSessionManager()->getCount();
 }
 
 int SP_Dispatcher :: getReqQueueLength()
 {
-	return mEventArg->mExecutor->getQueueLength();
+	return mEventArg->getInputResultQueue()->getLength();
 }
 
 int SP_Dispatcher :: dispatch()
@@ -133,11 +116,39 @@ void * SP_Dispatcher :: eventLoop( void * arg )
 	return NULL;
 }
 
+void SP_Dispatcher :: outputCompleted( void * arg )
+{
+	SP_CompletionHandler * handler = ( SP_CompletionHandler * ) ((void**)arg)[0];
+	SP_Message * msg = ( SP_Message * ) ((void**)arg)[ 1 ];
+
+	handler->completionMessage( msg );
+
+	free( arg );
+}
+
 int SP_Dispatcher :: start()
 {
+	SP_Executor workerExecutor( mMaxThreads, "work" );
+	SP_Executor actExecutor( 1, "act" );
+
 	/* Start the event loop. */
 	while( 0 == mIsShutdown ) {
-		event_base_loop( mEventArg->mEventBase, EVLOOP_ONCE );
+		event_base_loop( mEventArg->getEventBase(), EVLOOP_ONCE );
+
+		for( ; NULL != mEventArg->getInputResultQueue()->top(); ) {
+			SP_Task * task = (SP_Task*)mEventArg->getInputResultQueue()->pop();
+			workerExecutor.execute( task );
+		}
+
+		for( ; NULL != mEventArg->getOutputResultQueue()->top(); ) {
+			SP_Message * msg = (SP_Message*)mEventArg->getOutputResultQueue()->pop();
+
+			void ** arg = ( void** )malloc( sizeof( void * ) * 2 );
+			arg[ 0 ] = (void*)mCompletionHandler;
+			arg[ 1 ] = (void*)msg;
+
+			actExecutor.execute( outputCompleted, arg );
+		}
 	}
 
 	syslog( LOG_NOTICE, "Dispatcher is shutdown." );
@@ -154,15 +165,15 @@ typedef struct tagSP_PushArg {
 void SP_Dispatcher :: onPush( void * queueData, void * arg )
 {
 	SP_PushArg_t * pushArg = (SP_PushArg_t*)queueData;
-	SP_EventArg_t * eventArg = (SP_EventArg_t*)arg;
+	SP_EventArg * eventArg = (SP_EventArg*)arg;
 
 	SP_Sid_t sid;
 	sid.mKey = pushArg->mFd;
-	eventArg->mSessionManager->get( sid.mKey, &sid.mSeq );
+	eventArg->getSessionManager()->get( sid.mKey, &sid.mSeq );
 
 	SP_Session * session = new SP_Session( sid );
 
-	eventArg->mSessionManager->put( sid.mKey, session, &sid.mSeq );
+	eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
 
 	session->setHandler( pushArg->mHandler );
 	session->setArg( eventArg );
@@ -183,7 +194,7 @@ void SP_Dispatcher :: onPush( void * queueData, void * arg )
 int SP_Dispatcher :: push( int fd, SP_Handler * handler, int needStart )
 {
 	uint16_t seq = 0;
-	if( NULL != mEventArg->mSessionManager->get( fd, &seq ) ) {
+	if( NULL != mEventArg->getSessionManager()->get( fd, &seq ) ) {
 		return -1;
 	}
 

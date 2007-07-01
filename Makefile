@@ -12,7 +12,7 @@ LINT = lint -c
 RM = /bin/rm -f
 
 ifeq ($(origin version), undefined)
-	version = 0.5
+	version = 0.6
 endif
 
 LIBEVENT_INCL = -I../libevent/
@@ -25,7 +25,8 @@ LDFLAGS += $(LIBEVENT_LIB) -lpthread -lresolv
 
 LIBOBJS = sputils.o spthreadpool.o event_msgqueue.o spbuffer.o sphandler.o \
 	spmsgblock.o spmsgdecoder.o spresponse.o sprequest.o \
-	spexecutor.o spsession.o speventcb.o spserver.o spdispatcher.o \
+	spexecutor.o spsession.o speventcb.o spserver.o \
+	spdispatcher.o splfserver.o \
 	sphttpmsg.o sphttp.o
 
 TARGET =  libspserver.so \

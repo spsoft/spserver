@@ -31,6 +31,70 @@
 #include "event_msgqueue.h"
 #include "event.h"
 
+SP_EventArg :: SP_EventArg( int timeout )
+{
+	mEventBase = (struct event_base*)event_init();
+
+	mResponseQueue = msgqueue_new( mEventBase, 0,
+			SP_EventCallback::onResponse, this );
+
+	mInputResultQueue = new SP_BlockingQueue();
+
+	mOutputResultQueue = new SP_BlockingQueue();
+
+	mSessionManager = new SP_SessionManager();
+
+	mTimeout = timeout;
+}
+
+SP_EventArg :: ~SP_EventArg()
+{
+	delete mInputResultQueue;
+	delete mOutputResultQueue;
+
+	delete mSessionManager;
+
+	//msgqueue_destroy( (struct event_msgqueue*)mResponseQueue );
+	//event_base_free( mEventBase );
+}
+
+struct event_base * SP_EventArg :: getEventBase() const
+{
+	return mEventBase;
+}
+
+void * SP_EventArg :: getResponseQueue() const
+{
+	return mResponseQueue;
+}
+
+SP_BlockingQueue * SP_EventArg :: getInputResultQueue() const
+{
+	return mInputResultQueue;
+}
+
+SP_BlockingQueue * SP_EventArg :: getOutputResultQueue() const
+{
+	return mOutputResultQueue;
+}
+
+SP_SessionManager * SP_EventArg :: getSessionManager() const
+{
+	return mSessionManager;
+}
+
+void SP_EventArg :: setTimeout( int timeout )
+{
+	mTimeout = timeout;
+}
+
+int SP_EventArg :: getTimeout() const
+{
+	return mTimeout;
+}
+
+//-------------------------------------------------------------------
+
 void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 {
 	int clientFD;
@@ -38,7 +102,7 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 	socklen_t clientLen = sizeof( clientAddr );
 
 	SP_AcceptArg_t * acceptArg = (SP_AcceptArg_t*)arg;
-	SP_EventArg_t * eventArg = &( acceptArg->mEventArg );
+	SP_EventArg * eventArg = acceptArg->mEventArg;
 
 	clientFD = accept( fd, (struct sockaddr *)&clientAddr, &clientLen );
 	if( -1 == clientFD ) {
@@ -52,7 +116,7 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 
 	SP_Sid_t sid;
 	sid.mKey = clientFD;
-	eventArg->mSessionManager->get( sid.mKey, &sid.mSeq );
+	eventArg->getSessionManager()->get( sid.mKey, &sid.mSeq );
 
 	SP_Session * session = new SP_Session( sid );
 
@@ -61,7 +125,7 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 	session->getRequest()->setClientIP( clientIP );
 
 	if( NULL != session ) {
-		eventArg->mSessionManager->put( sid.mKey, session, &sid.mSeq );
+		eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
 
 		session->setHandler( acceptArg->mHandlerFactory->create() );
 		session->setArg( eventArg );
@@ -72,11 +136,11 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 		addEvent( session, EV_WRITE, clientFD );
 		addEvent( session, EV_READ, clientFD );
 
-		if( eventArg->mSessionManager->getCount() > acceptArg->mMaxConnections
-				|| eventArg->mExecutor->getQueueLength() >= acceptArg->mReqQueueSize ) {
+		if( eventArg->getSessionManager()->getCount() > acceptArg->mMaxConnections
+				|| eventArg->getInputResultQueue()->getLength() >= acceptArg->mReqQueueSize ) {
 			syslog( LOG_WARNING, "System busy, session.count %d [%d], queue.length %d [%d]",
-				eventArg->mSessionManager->getCount(), acceptArg->mMaxConnections,
-				eventArg->mExecutor->getQueueLength(), acceptArg->mReqQueueSize );
+				eventArg->getSessionManager()->getCount(), acceptArg->mMaxConnections,
+				eventArg->getInputResultQueue()->getLength(), acceptArg->mReqQueueSize );
 
 			SP_Message * msg = new SP_Message();
 			msg->getMsg()->append( acceptArg->mRefusedMsg );
@@ -136,7 +200,7 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 	SP_Session * session = (SP_Session*)arg;
 
 	SP_Handler * handler = session->getHandler();
-	SP_EventArg_t * eventArg = (SP_EventArg_t*)session->getArg();
+	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
 
 	session->setWriting( 0 );
 
@@ -174,7 +238,7 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 				if( 0 == session->getRunning() ) {
 					syslog( LOG_NOTICE, "session(%d.%d) close, exit", sid.mKey, sid.mSeq );
 
-					eventArg->mSessionManager->remove( fd );
+					eventArg->getSessionManager()->remove( fd );
 					event_del( session->getReadEvent() );
 					handler->close();
 					close( fd );
@@ -212,8 +276,8 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 void SP_EventCallback :: onResponse( void * queueData, void * arg )
 {
 	SP_Response * response = (SP_Response*)queueData;
-	SP_EventArg_t * eventArg = (SP_EventArg_t*)arg;
-	SP_SessionManager * manager = eventArg->mSessionManager;
+	SP_EventArg * eventArg = (SP_EventArg*)arg;
+	SP_SessionManager * manager = eventArg->getSessionManager();
 
 	SP_Sid_t fromSid = response->getFromSid();
 
@@ -277,7 +341,7 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 
 void SP_EventCallback :: addEvent( SP_Session * session, short events, int fd )
 {
-	SP_EventArg_t * arg = (SP_EventArg_t*)session->getArg();
+	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
 
 	if( ( events & EV_WRITE ) && 0 == session->getWriting() ) {
 		session->setWriting( 1 );
@@ -285,11 +349,11 @@ void SP_EventCallback :: addEvent( SP_Session * session, short events, int fd )
 		if( fd < 0 ) fd = EVENT_FD( session->getWriteEvent() );
 
 		event_set( session->getWriteEvent(), fd, events, onWrite, session );
-		event_base_set( arg->mEventBase, session->getWriteEvent() );
+		event_base_set( eventArg->getEventBase(), session->getWriteEvent() );
 
 		struct timeval timeout;
 		memset( &timeout, 0, sizeof( timeout ) );
-		timeout.tv_sec = arg->mTimeout;
+		timeout.tv_sec = eventArg->getTimeout();
 		event_add( session->getWriteEvent(), &timeout );
 	}
 
@@ -297,11 +361,11 @@ void SP_EventCallback :: addEvent( SP_Session * session, short events, int fd )
 		if( fd < 0 ) fd = EVENT_FD( session->getWriteEvent() );
 
 		event_set( session->getReadEvent(), fd, events, onRead, session );
-		event_base_set( arg->mEventBase, session->getReadEvent() );
+		event_base_set( eventArg->getEventBase(), session->getReadEvent() );
 
 		struct timeval timeout;
 		memset( &timeout, 0, sizeof( timeout ) );
-		timeout.tv_sec = arg->mTimeout;
+		timeout.tv_sec = eventArg->getTimeout();
 		event_add( session->getReadEvent(), &timeout );
 	}
 }
@@ -404,8 +468,8 @@ void SP_EventHelper :: doWork( SP_Session * session )
 {
 	if( SP_Session::eNormal == session->getStatus() ) {
 		session->setRunning( 1 );
-		SP_EventArg_t * eventArg = (SP_EventArg_t*)session->getArg();
-		eventArg->mExecutor->execute( worker, session );
+		SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
+		eventArg->getInputResultQueue()->push( new SP_SimpleTask( worker, session, 1 ) );
 	} else {
 		SP_Sid_t sid = session->getSid();
 
@@ -421,7 +485,7 @@ void SP_EventHelper :: worker( void * arg )
 {
 	SP_Session * session = (SP_Session*)arg;
 	SP_Handler * handler = session->getHandler();
-	SP_EventArg_t * eventArg = (SP_EventArg_t *)session->getArg();
+	SP_EventArg * eventArg = (SP_EventArg *)session->getArg();
 
 	SP_Response * response = new SP_Response( session->getSid() );
 	if( 0 != handler->handle( session->getRequest(), response ) ) {
@@ -430,12 +494,12 @@ void SP_EventHelper :: worker( void * arg )
 
 	session->setRunning( 0 );
 
-	msgqueue_push( (struct event_msgqueue*)eventArg->mResponseQueue, response );
+	msgqueue_push( (struct event_msgqueue*)eventArg->getResponseQueue(), response );
 }
 
 void SP_EventHelper :: doError( SP_Session * session )
 {
-	SP_EventArg_t * eventArg = (SP_EventArg_t *)session->getArg();
+	SP_EventArg * eventArg = (SP_EventArg *)session->getArg();
 
 	event_del( session->getWriteEvent() );
 	event_del( session->getReadEvent() );
@@ -456,22 +520,22 @@ void SP_EventHelper :: doError( SP_Session * session )
 	}
 
 	// remove session from SessionManager, onResponse will ignore this session
-	eventArg->mSessionManager->remove( sid.mKey );
+	eventArg->getSessionManager()->remove( sid.mKey );
 
-	eventArg->mExecutor->execute( error, session );
+	eventArg->getInputResultQueue()->push( new SP_SimpleTask( error, session, 1 ) );
 }
 
 void SP_EventHelper :: error( void * arg )
 {
 	SP_Session * session = ( SP_Session * )arg;
-	SP_EventArg_t * eventArg = (SP_EventArg_t*)session->getArg();
+	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
 
 	SP_Sid_t sid = session->getSid();
 
 	SP_Response * response = new SP_Response( sid );
 	session->getHandler()->error( response );
 
-	msgqueue_push( (struct event_msgqueue*)eventArg->mResponseQueue, response );
+	msgqueue_push( (struct event_msgqueue*)eventArg->getResponseQueue(), response );
 
 	// onResponse will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
@@ -482,7 +546,7 @@ void SP_EventHelper :: error( void * arg )
 
 void SP_EventHelper :: doTimeout( SP_Session * session )
 {
-	SP_EventArg_t * eventArg = (SP_EventArg_t*)session->getArg();
+	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
 
 	event_del( session->getWriteEvent() );
 	event_del( session->getReadEvent() );
@@ -503,21 +567,21 @@ void SP_EventHelper :: doTimeout( SP_Session * session )
 	}
 
 	// remove session from SessionManager, onResponse will ignore this session
-	eventArg->mSessionManager->remove( sid.mKey );
+	eventArg->getSessionManager()->remove( sid.mKey );
 
-	eventArg->mExecutor->execute( timeout, session );
+	eventArg->getInputResultQueue()->push( new SP_SimpleTask( timeout, session, 1 ) );
 }
 
 void SP_EventHelper :: timeout( void * arg )
 {
 	SP_Session * session = ( SP_Session * )arg;
-	SP_EventArg_t * eventArg = (SP_EventArg_t*)session->getArg();
+	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
 
 	SP_Sid_t sid = session->getSid();
 
 	SP_Response * response = new SP_Response( sid );
 	session->getHandler()->timeout( response );
-	msgqueue_push( (struct event_msgqueue*)eventArg->mResponseQueue, response );
+	msgqueue_push( (struct event_msgqueue*)eventArg->getResponseQueue(), response );
 
 	// onResponse will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
@@ -530,14 +594,14 @@ void SP_EventHelper :: timeout( void * arg )
 void SP_EventHelper :: doStart( SP_Session * session )
 {
 	session->setRunning( 1 );
-	SP_EventArg_t * eventArg = (SP_EventArg_t*)session->getArg();
-	eventArg->mExecutor->execute( start, session );
+	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
+	eventArg->getInputResultQueue()->push( new SP_SimpleTask( start, session, 1 ) );
 }
 
 void SP_EventHelper :: start( void * arg )
 {
 	SP_Session * session = ( SP_Session * )arg;
-	SP_EventArg_t * eventArg = (SP_EventArg_t*)session->getArg();
+	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
 
 	SP_Response * response = new SP_Response( session->getSid() );
 
@@ -547,26 +611,12 @@ void SP_EventHelper :: start( void * arg )
 
 	session->setRunning( 0 );
 
-	msgqueue_push( (struct event_msgqueue*)eventArg->mResponseQueue, response );
+	msgqueue_push( (struct event_msgqueue*)eventArg->getResponseQueue(), response );
 }
 
-void SP_EventHelper :: doCompletion( SP_EventArg_t * eventArg, SP_Message * msg )
+void SP_EventHelper :: doCompletion( SP_EventArg * eventArg, SP_Message * msg )
 {
-	void ** arg = ( void** )malloc( sizeof( void * ) * 2 );
-	arg[ 0 ] = (void*)eventArg->mCompletionHandler;
-	arg[ 1 ] = (void*)msg;
-
-	eventArg->mCompletionExecutor->execute( completion, arg );
-}
-
-void SP_EventHelper :: completion( void * arg )
-{
-	SP_CompletionHandler * handler = ( SP_CompletionHandler * ) ((void**)arg)[0];
-	SP_Message * msg = ( SP_Message * ) ((void**)arg)[ 1 ];
-
-	handler->completionMessage( msg );
-
-	free( arg );
+	eventArg->getOutputResultQueue()->push( msg );
 }
 
 int SP_EventHelper :: transmit( SP_Session * session, int fd )
@@ -577,7 +627,7 @@ int SP_EventHelper :: transmit( SP_Session * session, int fd )
 	const static int SP_MAX_IOV = 8;
 #endif
 
-	SP_EventArg_t * eventArg = (SP_EventArg_t*)session->getArg();
+	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
 
 	SP_ArrayList * outList = session->getOutList();
 	size_t outOffset = session->getOutOffset();

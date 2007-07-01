@@ -63,6 +63,7 @@ SP_ThreadPool :: ~SP_ThreadPool()
 		pthread_cond_wait( &mEmptyCond, &mMainMutex );
 	}
 
+	syslog( LOG_NOTICE, "[tp@%s] destroy %d thread structure(s)\n", mTag, mIndex );
 	for( int i = 0; i < mIndex; i++ ) {
 		SP_Thread_t * thread = mThreadList[ i ];
 		pthread_mutex_destroy( &thread->mMutex );
@@ -127,6 +128,7 @@ int SP_ThreadPool :: dispatch( DispatchFunc_t dispatchFunc, void *arg )
 			pthread_cond_destroy( &thread->mCond );
 			free( thread );
 		}
+		pthread_attr_destroy( &attr );
 	} else {
 		mIndex--;
 		thread = mThreadList[ mIndex ];
@@ -163,16 +165,19 @@ void * SP_ThreadPool :: wrapperFunc( void * arg )
 			pthread_mutex_destroy( &thread->mMutex );
 
 			free( thread );
+			thread = NULL;
 			break;
 		}
 	}
 
-	pthread_mutex_lock( &thread->mParent->mMainMutex );
-	thread->mParent->mTotal--;
-	if( thread->mParent->mTotal <= 0 ) {
-		pthread_cond_signal( &thread->mParent->mEmptyCond );
+	if( NULL != thread ) {
+		pthread_mutex_lock( &thread->mParent->mMainMutex );
+		thread->mParent->mTotal--;
+		if( thread->mParent->mTotal <= 0 ) {
+			pthread_cond_signal( &thread->mParent->mEmptyCond );
+		}
+		pthread_mutex_unlock( &thread->mParent->mMainMutex );
 	}
-	pthread_mutex_unlock( &thread->mParent->mMainMutex );
 
 	return NULL;
 }

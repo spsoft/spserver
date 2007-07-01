@@ -14,6 +14,7 @@
 #include "sphttp.hpp"
 #include "sphttpmsg.hpp"
 #include "spserver.hpp"
+#include "splfserver.hpp"
 
 class SP_HttpEchoHandler : public SP_HttpHandler {
 public:
@@ -70,11 +71,12 @@ public:
 int main( int argc, char * argv[] )
 {
 	int port = 8080, maxThreads = 10;
+	const char * serverType = "hahs";
 
 	extern char *optarg ;
 	int c ;
 
-	while( ( c = getopt ( argc, argv, "p:t:v" )) != EOF ) {
+	while( ( c = getopt ( argc, argv, "p:t:s:v" )) != EOF ) {
 		switch ( c ) {
 			case 'p' :
 				port = atoi( optarg );
@@ -82,9 +84,12 @@ int main( int argc, char * argv[] )
 			case 't':
 				maxThreads = atoi( optarg );
 				break;
+			case 's':
+				serverType = optarg;
+				break;
 			case '?' :
 			case 'v' :
-				printf( "Usage: %s [-p <port>] [-t <threads>]\n", argv[0] );
+				printf( "Usage: %s [-p <port>] [-t <threads>] [-s <hahs|lf>]\n", argv[0] );
 				exit( 0 );
 		}
 	}
@@ -95,13 +100,23 @@ int main( int argc, char * argv[] )
 	openlog( "testhttp", LOG_CONS | LOG_PID, LOG_USER );
 #endif
 
-	SP_Server server( "", port, new SP_HttpHandlerAdapterFactory( new SP_HttpEchoHandlerFactory() ) );
+	if( 0 == strcasecmp( serverType, "hahs" ) ) {
+		SP_Server server( "", port, new SP_HttpHandlerAdapterFactory( new SP_HttpEchoHandlerFactory() ) );
 
-	server.setTimeout( 60 );
-	server.setMaxThreads( maxThreads );
-	server.setReqQueueSize( 100, "HTTP/1.1 500 Sorry, server is busy now!\r\n" );
+		server.setTimeout( 60 );
+		server.setMaxThreads( maxThreads );
+		server.setReqQueueSize( 100, "HTTP/1.1 500 Sorry, server is busy now!\r\n" );
 
-	server.runForever();
+		server.runForever();
+	} else {
+		SP_LFServer server( "", port, new SP_HttpHandlerAdapterFactory( new SP_HttpEchoHandlerFactory() ) );
+
+		server.setTimeout( 60 );
+		server.setMaxThreads( maxThreads );
+		server.setReqQueueSize( 100, "HTTP/1.1 500 Sorry, server is busy now!\r\n" );
+
+		server.runForever();
+	}
 
 	closelog();
 
