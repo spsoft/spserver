@@ -157,9 +157,19 @@ int SP_Dispatcher :: start()
 }
 
 typedef struct tagSP_PushArg {
+	int mType;      // 0 : fd, 1 : timer
+
+	// for push fd
 	int mFd;
 	SP_Handler * mHandler;
 	int mNeedStart;
+
+	// for push timer
+	struct timeval mTimeout;
+	struct event mTimerEvent;
+	SP_TimerHandler * mTimerHandler;
+	SP_EventArg * mEventArg;
+	void * mPushQueue;
 } SP_PushArg_t;
 
 void SP_Dispatcher :: onPush( void * queueData, void * arg )
@@ -167,28 +177,34 @@ void SP_Dispatcher :: onPush( void * queueData, void * arg )
 	SP_PushArg_t * pushArg = (SP_PushArg_t*)queueData;
 	SP_EventArg * eventArg = (SP_EventArg*)arg;
 
-	SP_Sid_t sid;
-	sid.mKey = pushArg->mFd;
-	eventArg->getSessionManager()->get( sid.mKey, &sid.mSeq );
+	if( 0 == pushArg->mType ) {
+		SP_Sid_t sid;
+		sid.mKey = pushArg->mFd;
+		eventArg->getSessionManager()->get( sid.mKey, &sid.mSeq );
 
-	SP_Session * session = new SP_Session( sid );
+		SP_Session * session = new SP_Session( sid );
 
-	eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
+		eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
 
-	session->setHandler( pushArg->mHandler );
-	session->setArg( eventArg );
+		session->setHandler( pushArg->mHandler );
+		session->setArg( eventArg );
 
-	event_set( session->getReadEvent(), pushArg->mFd, EV_READ,
-			SP_EventCallback::onRead, session );
-	event_set( session->getWriteEvent(), pushArg->mFd, EV_WRITE,
-			SP_EventCallback::onWrite, session );
+		event_set( session->getReadEvent(), pushArg->mFd, EV_READ,
+				SP_EventCallback::onRead, session );
+		event_set( session->getWriteEvent(), pushArg->mFd, EV_WRITE,
+				SP_EventCallback::onWrite, session );
 
-	SP_EventCallback::addEvent( session, EV_WRITE, pushArg->mFd );
-	SP_EventCallback::addEvent( session, EV_READ, pushArg->mFd );
+		SP_EventCallback::addEvent( session, EV_WRITE, pushArg->mFd );
+		SP_EventCallback::addEvent( session, EV_READ, pushArg->mFd );
 
-	if( pushArg->mNeedStart ) SP_EventHelper::doStart( session );
+		if( pushArg->mNeedStart ) SP_EventHelper::doStart( session );
 
-	free( pushArg );
+		free( pushArg );
+	} else {
+		event_set( &( pushArg->mTimerEvent ), -1, 0, onTimer, pushArg );
+		event_base_set( eventArg->getEventBase(), &( pushArg->mTimerEvent ) );
+		event_add( &( pushArg->mTimerEvent ), &( pushArg->mTimeout ) );
+	}
 }
 
 int SP_Dispatcher :: push( int fd, SP_Handler * handler, int needStart )
@@ -199,11 +215,53 @@ int SP_Dispatcher :: push( int fd, SP_Handler * handler, int needStart )
 	}
 
 	SP_PushArg_t * arg = (SP_PushArg_t*)malloc( sizeof( SP_PushArg_t ) );
+	arg->mType = 0;
 	arg->mFd = fd;
 	arg->mHandler = handler;
 	arg->mNeedStart = needStart;
 
 	SP_EventHelper::setNonblock( fd );
+
+	return msgqueue_push( (struct event_msgqueue*)mPushQueue, arg );
+}
+
+void SP_Dispatcher :: onTimer( int, short, void * arg )
+{
+	SP_PushArg_t * pushArg = (SP_PushArg_t*)arg;
+
+	pushArg->mEventArg->getInputResultQueue()->push(
+		new SP_SimpleTask( timer, pushArg, 1 ) );
+}
+
+void SP_Dispatcher :: timer( void * arg )
+{
+	SP_PushArg_t * pushArg = (SP_PushArg_t*)arg;
+	SP_TimerHandler * handler = pushArg->mTimerHandler;
+	SP_EventArg * eventArg = pushArg->mEventArg;
+
+	SP_Sid_t sid;
+	sid.mKey = SP_Sid_t::eTimerKey;
+	sid.mSeq = SP_Sid_t::eTimerSeq;
+	SP_Response * response = new SP_Response( sid );
+	if( 0 == handler->handle( response, &( pushArg->mTimeout ) ) ) {
+		msgqueue_push( (struct event_msgqueue*)pushArg->mPushQueue, arg );
+	} else {
+		//delete pushArg->mTimerHandler;
+		free( pushArg );
+	}
+
+	msgqueue_push( (struct event_msgqueue*)eventArg->getResponseQueue(), response );
+}
+
+int SP_Dispatcher :: push( const struct timeval * timeout, SP_TimerHandler * handler )
+{
+	SP_PushArg_t * arg = (SP_PushArg_t*)malloc( sizeof( SP_PushArg_t ) );
+
+	arg->mType = 1;
+	arg->mTimeout = *timeout;
+	arg->mTimerHandler = handler;
+	arg->mEventArg = mEventArg;
+	arg->mPushQueue = mPushQueue;
 
 	return msgqueue_push( (struct event_msgqueue*)mPushQueue, arg );
 }

@@ -12,6 +12,12 @@ SP_Handler :: ~SP_Handler()
 
 //---------------------------------------------------------
 
+SP_TimerHandler :: ~SP_TimerHandler()
+{
+}
+
+//---------------------------------------------------------
+
 SP_CompletionHandler :: ~SP_CompletionHandler()
 {
 }

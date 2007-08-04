@@ -6,9 +6,13 @@
 #ifndef __spdispatcher_hpp__
 #define __spdispatcher_hpp__
 
+#include <sys/time.h>
+
 class SP_CompletionHandler;
 class SP_Handler;
 class SP_Message;
+class SP_BlockingQueue;
+class SP_TimerHandler;
 
 class SP_EventArg;
 
@@ -39,6 +43,13 @@ public:
 	 */
 	int push( int fd, SP_Handler * handler, int needStart = 1 );
 
+	/**
+	 * @brief register a timer into dispatcher
+	 * @param timeout : the interval for the timer
+	 * @note  handler will be deleted by dispatcher when the timer is terminated
+	 */
+	int push( const struct timeval * timeout, SP_TimerHandler * handler );
+
 private:
 	int mIsShutdown;
 	int mIsRunning;
@@ -56,6 +67,9 @@ private:
 	static void onPush( void * queueData, void * arg );
 
 	static void outputCompleted( void * arg );
+
+	static void onTimer( int, short, void * arg );
+	static void timer( void * arg );
 };
 
 #endif

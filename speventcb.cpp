@@ -27,7 +27,7 @@
 #include "sprequest.hpp"
 #include "spmsgblock.hpp"
 
-#include "config.h"
+#include "config.h"   // from libevent, for event.h
 #include "event_msgqueue.h"
 #include "event.h"
 
@@ -280,24 +280,26 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 	SP_SessionManager * manager = eventArg->getSessionManager();
 
 	SP_Sid_t fromSid = response->getFromSid();
-
 	u_int16_t seq = 0;
-	SP_Session * session = manager->get( fromSid.mKey, &seq );
 
-	if( seq == fromSid.mSeq && NULL != session ) {
-		if( SP_Session::eWouldExit == session->getStatus() ) {
-			session->setStatus( SP_Session::eExit );
+	if( ! SP_EventHelper::isSystemSid( &fromSid ) ) {
+		SP_Session * session = manager->get( fromSid.mKey, &seq );
+		if( seq == fromSid.mSeq && NULL != session ) {
+			if( SP_Session::eWouldExit == session->getStatus() ) {
+				session->setStatus( SP_Session::eExit );
+			}
+
+			if( SP_Session::eNormal != session->getStatus() ) {
+				event_del( session->getReadEvent() );
+			}
+
+			// always add a write event for sender, 
+			// so the pending input can be processed in onWrite
+			addEvent( session, EV_WRITE, -1 );
+		} else {
+			syslog( LOG_WARNING, "session(%d.%d) invalid, unknown FROM",
+					fromSid.mKey, fromSid.mSeq );
 		}
-
-		if( SP_Session::eNormal != session->getStatus() ) {
-			event_del( session->getReadEvent() );
-		}
-
-		// always add a write event for sender, 
-		// so the pending input can be processed in onWrite
-		addEvent( session, EV_WRITE, -1 );
-	} else {
-		syslog( LOG_WARNING, "session(%d.%d) invalid, unknown FROM", fromSid.mKey, fromSid.mSeq );
 	}
 
 	for( SP_Message * msg = response->takeMessage();
@@ -308,7 +310,7 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 		if( msg->getTotalSize() > 0 ) {
 			for( int i = sidList->getCount() - 1; i >= 0; i-- ) {
 				SP_Sid_t sid = sidList->get( i );
-				session = manager->get( sid.mKey, &seq );
+				SP_Session * session = manager->get( sid.mKey, &seq );
 				if( seq == sid.mSeq && NULL != session ) {
 					if( 0 != memcmp( &fromSid, &sid, sizeof( sid ) )
 							&& SP_Session::eExit == session->getStatus() ) {
@@ -393,6 +395,11 @@ void SP_EventHelper :: inetNtoa( in_addr * addr, char * ip, int size )
 #else
 	snprintf( ip, size, "%i.%i.%i.%i", addr->s_net, addr->s_host, addr->s_lh, addr->s_impno );
 #endif
+}
+
+int SP_EventHelper :: isSystemSid( SP_Sid_t * sid )
+{
+	return sid->mKey == SP_Sid_t::eTimerKey && sid->mSeq == SP_Sid_t::eTimerSeq;
 }
 
 int SP_EventHelper :: tcpListen( const char * ip, int port, int * fd, int blocking )
