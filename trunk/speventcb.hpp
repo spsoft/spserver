@@ -15,6 +15,7 @@ class SP_BlockingQueue;
 class SP_Message;
 
 struct event_base;
+typedef struct tagSP_Sid SP_Sid_t;
 
 class SP_EventArg {
 public:
@@ -89,6 +90,8 @@ public:
 	static int setNonblock( int fd );
 
 	static int tcpListen( const char * ip, int port, int * fd, int blocking = 1 );
+
+	static int isSystemSid( SP_Sid_t * sid );
 
 private:
 	SP_EventHelper();

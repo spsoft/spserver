@@ -13,6 +13,7 @@ class SP_Response;
 class SP_Message;
 
 struct event;
+struct timeval;
 
 class SP_Handler {
 public:
@@ -29,6 +30,14 @@ public:
 	virtual void timeout( SP_Response * response ) = 0;
 
 	virtual void close() = 0;
+};
+
+class SP_TimerHandler {
+public:
+	virtual ~SP_TimerHandler();
+
+	// return -1 : terminate timer, 0 : continue
+	virtual int handle( SP_Response * response, struct timeval * timeout ) = 0;
 };
 
 /**

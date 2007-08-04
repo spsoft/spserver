@@ -7,6 +7,7 @@
 #include <syslog.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -55,6 +56,32 @@ public:
 	virtual void close() {}
 };
 
+class SP_EchoTimerHandler : public SP_TimerHandler {
+public:
+	SP_EchoTimerHandler(){
+		mCount = 1;
+	}
+
+	virtual ~SP_EchoTimerHandler(){}
+
+	// return -1 : terminate timer, 0 : continue
+	virtual int handle( SP_Response * response, struct timeval * timeout ) {
+		syslog( LOG_NOTICE, "time = %li, call timer handler", time( NULL ) );
+
+		if( ++mCount >= 10 ) {
+			syslog( LOG_NOTICE, "stop timer" );
+			return -1;
+		} else {
+			syslog( LOG_NOTICE, "set timer to %d seconds later", mCount );
+			timeout->tv_sec = mCount;
+			return 0;
+		}
+	}
+
+private:
+	int mCount;
+};
+
 int main( int argc, char * argv[] )
 {
 	int port = 3333, maxThreads = 10;
@@ -90,6 +117,12 @@ int main( int argc, char * argv[] )
 	if( 0 == SP_EventHelper::tcpListen( "", port, &listenFd ) ) {
 		SP_Dispatcher dispatcher( new SP_DefaultCompletionHandler(), maxThreads );
 		dispatcher.dispatch();
+
+		struct timeval timeout;
+		timerclear( &timeout );
+		timeout.tv_sec = 1;
+
+		dispatcher.push( &timeout, new SP_EchoTimerHandler() );
 
 		for( ; ; ) {
 			struct sockaddr_in addr;

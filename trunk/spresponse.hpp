@@ -21,6 +21,11 @@ class SP_MsgBlockList;
 typedef struct tagSP_Sid {
 	uint16_t mKey;
 	uint16_t mSeq;
+
+	enum {
+		eTimerKey = 0,
+		eTimerSeq = 65535
+	};
 } SP_Sid_t;
 
 class SP_SidList {
