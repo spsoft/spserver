@@ -408,7 +408,7 @@ int SP_EventHelper :: tcpListen( const char * ip, int port, int * fd, int blocki
 
 	int listenFd = socket( AF_INET, SOCK_STREAM, 0 );
 	if( listenFd < 0 ) {
-		syslog( LOG_WARNING, "listen failed" );
+		syslog( LOG_WARNING, "listen failed, errno %d, %s", errno, strerror( errno ) );
 		ret = -1;
 	}
 
@@ -449,14 +449,14 @@ int SP_EventHelper :: tcpListen( const char * ip, int port, int * fd, int blocki
 
 	if( 0 == ret ) {
 		if( bind( listenFd, (struct sockaddr*)&addr, sizeof( addr ) ) < 0 ) {
-			syslog( LOG_WARNING, "bind failed" );
+			syslog( LOG_WARNING, "bind failed, errno %d, %s", errno, strerror( errno ) );
 			ret = -1;
 		}
 	}
 
 	if( 0 == ret ) {
 		if( ::listen( listenFd, 5 ) < 0 ) {
-			syslog( LOG_WARNING, "listen failed" );
+			syslog( LOG_WARNING, "listen failed, errno %d, %s", errno, strerror( errno ) );
 			ret = -1;
 		}
 	}
