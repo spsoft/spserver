@@ -246,7 +246,7 @@ void SP_Dispatcher :: timer( void * arg )
 	if( 0 == handler->handle( response, &( pushArg->mTimeout ) ) ) {
 		msgqueue_push( (struct event_msgqueue*)pushArg->mPushQueue, arg );
 	} else {
-		//delete pushArg->mTimerHandler;
+		delete pushArg->mTimerHandler;
 		free( pushArg );
 	}
 
