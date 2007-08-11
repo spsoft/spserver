@@ -48,16 +48,6 @@ void SP_Buffer :: reset()
 	erase( getSize() );
 }
 
-int SP_Buffer :: write( int fd )
-{
-	return evbuffer_write( mBuffer, fd );
-}
-
-int SP_Buffer :: read( int fd )
-{
-	return evbuffer_read( mBuffer, fd, -1 );
-}
-
 const void * SP_Buffer :: getBuffer() const
 {
 	if( NULL != EVBUFFER_DATA( mBuffer ) ) {

@@ -20,6 +20,8 @@
 #include "spsession.hpp"
 #include "spexecutor.hpp"
 #include "sputils.hpp"
+#include "spiochannel.hpp"
+#include "spioutils.hpp"
 
 #include "config.h"
 #include "event_msgqueue.h"
@@ -162,6 +164,7 @@ typedef struct tagSP_PushArg {
 	// for push fd
 	int mFd;
 	SP_Handler * mHandler;
+	SP_IOChannel * mIOChannel;
 	int mNeedStart;
 
 	// for push timer
@@ -187,6 +190,7 @@ void SP_Dispatcher :: onPush( void * queueData, void * arg )
 		eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
 
 		session->setHandler( pushArg->mHandler );
+		session->setIOChannel( pushArg->mIOChannel );
 		session->setArg( eventArg );
 
 		event_set( session->getReadEvent(), pushArg->mFd, EV_READ,
@@ -194,10 +198,12 @@ void SP_Dispatcher :: onPush( void * queueData, void * arg )
 		event_set( session->getWriteEvent(), pushArg->mFd, EV_WRITE,
 				SP_EventCallback::onWrite, session );
 
-		SP_EventCallback::addEvent( session, EV_WRITE, pushArg->mFd );
-		SP_EventCallback::addEvent( session, EV_READ, pushArg->mFd );
-
-		if( pushArg->mNeedStart ) SP_EventHelper::doStart( session );
+		if( pushArg->mNeedStart ) {
+			SP_EventHelper::doStart( session );
+		} else {
+			SP_EventCallback::addEvent( session, EV_WRITE, pushArg->mFd );
+			SP_EventCallback::addEvent( session, EV_READ, pushArg->mFd );
+		}
 
 		free( pushArg );
 	} else {
@@ -209,6 +215,13 @@ void SP_Dispatcher :: onPush( void * queueData, void * arg )
 
 int SP_Dispatcher :: push( int fd, SP_Handler * handler, int needStart )
 {
+	SP_IOChannel * ioChannel = new SP_DefaultIOChannel();
+	return push( fd, handler, ioChannel, needStart );
+}
+
+int SP_Dispatcher :: push( int fd, SP_Handler * handler,
+		SP_IOChannel * ioChannel, int needStart )
+{
 	uint16_t seq = 0;
 	if( NULL != mEventArg->getSessionManager()->get( fd, &seq ) ) {
 		return -1;
@@ -218,9 +231,10 @@ int SP_Dispatcher :: push( int fd, SP_Handler * handler, int needStart )
 	arg->mType = 0;
 	arg->mFd = fd;
 	arg->mHandler = handler;
+	arg->mIOChannel = ioChannel;
 	arg->mNeedStart = needStart;
 
-	SP_EventHelper::setNonblock( fd );
+	SP_IOUtils::setNonblock( fd );
 
 	return msgqueue_push( (struct event_msgqueue*)mPushQueue, arg );
 }

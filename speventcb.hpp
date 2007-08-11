@@ -6,13 +6,12 @@
 #ifndef __speventcb_hpp__
 #define __speventcb_hpp__
 
-#include <netinet/in.h>
-
 class SP_HandlerFactory;
 class SP_SessionManager;
 class SP_Session;
 class SP_BlockingQueue;
 class SP_Message;
+class SP_IOChannelFactory;
 
 struct event_base;
 typedef struct tagSP_Sid SP_Sid_t;
@@ -47,6 +46,7 @@ typedef struct tagSP_AcceptArg {
 	SP_EventArg * mEventArg;
 
 	SP_HandlerFactory * mHandlerFactory;
+	SP_IOChannelFactory * mIOChannelFactory;
 	int mReqQueueSize;
 	int mMaxConnections;
 	char * mRefusedMsg;
@@ -82,14 +82,6 @@ public:
 	static void timeout( void * arg );
 
 	static void doCompletion( SP_EventArg * eventArg, SP_Message * msg );
-
-	static int transmit( SP_Session * session, int fd );
-
-	static void inetNtoa( in_addr * addr, char * ip, int size );
-
-	static int setNonblock( int fd );
-
-	static int tcpListen( const char * ip, int port, int * fd, int blocking = 1 );
 
 	static int isSystemSid( SP_Sid_t * sid );
 

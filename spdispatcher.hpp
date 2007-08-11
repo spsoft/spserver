@@ -13,6 +13,7 @@ class SP_Handler;
 class SP_Message;
 class SP_BlockingQueue;
 class SP_TimerHandler;
+class SP_IOChannel;
 
 class SP_EventArg;
 
@@ -42,6 +43,8 @@ public:
 	 * @note  handler will be deleted by dispatcher when the session is close
 	 */
 	int push( int fd, SP_Handler * handler, int needStart = 1 );
+
+	int push( int fd, SP_Handler * handler, SP_IOChannel * ioChannel, int needStart = 1 );
 
 	/**
 	 * @brief register a timer into dispatcher

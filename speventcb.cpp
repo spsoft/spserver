@@ -8,17 +8,14 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netinet/tcp.h>
+#include <sys/socket.h>
 
 #include "speventcb.hpp"
-#include "spsession.hpp"
 #include "spexecutor.hpp"
+#include "spsession.hpp"
 #include "spresponse.hpp"
 #include "sphandler.hpp"
 #include "spbuffer.hpp"
@@ -26,6 +23,8 @@
 #include "sputils.hpp"
 #include "sprequest.hpp"
 #include "spmsgblock.hpp"
+#include "spiochannel.hpp"
+#include "spioutils.hpp"
 
 #include "config.h"   // from libevent, for event.h
 #include "event_msgqueue.h"
@@ -110,7 +109,7 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 		return;
 	}
 
-	if( SP_EventHelper::setNonblock( clientFD ) < 0 ) {
+	if( SP_IOUtils::setNonblock( clientFD ) < 0 ) {
 		syslog( LOG_WARNING, "failed to set client socket non-blocking" );
 	}
 
@@ -121,20 +120,18 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 	SP_Session * session = new SP_Session( sid );
 
 	char clientIP[ 32 ] = { 0 };
-	SP_EventHelper::inetNtoa( &( clientAddr.sin_addr ), clientIP, sizeof( clientIP ) );
+	SP_IOUtils::inetNtoa( &( clientAddr.sin_addr ), clientIP, sizeof( clientIP ) );
 	session->getRequest()->setClientIP( clientIP );
 
 	if( NULL != session ) {
 		eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
 
 		session->setHandler( acceptArg->mHandlerFactory->create() );
+		session->setIOChannel( acceptArg->mIOChannelFactory->create() );
 		session->setArg( eventArg );
 
 		event_set( session->getReadEvent(), clientFD, EV_READ, onRead, session );
 		event_set( session->getWriteEvent(), clientFD, EV_WRITE, onWrite, session );
-
-		addEvent( session, EV_WRITE, clientFD );
-		addEvent( session, EV_READ, clientFD );
 
 		if( eventArg->getSessionManager()->getCount() > acceptArg->mMaxConnections
 				|| eventArg->getInputResultQueue()->getLength() >= acceptArg->mReqQueueSize ) {
@@ -146,8 +143,9 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 			msg->getMsg()->append( acceptArg->mRefusedMsg );
 			msg->getMsg()->append( "\r\n" );
 			session->getOutList()->append( msg );
-
 			session->setStatus( SP_Session::eExit );
+
+			addEvent( session, EV_WRITE, clientFD );
 		} else {
 			SP_EventHelper::doStart( session );
 		}
@@ -161,10 +159,12 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 {
 	SP_Session * session = (SP_Session*)arg;
 
+	session->setReading( 0 );
+
 	SP_Sid_t sid = session->getSid();
 
 	if( EV_READ & events ) {
-		int len = session->getInBuffer()->read( fd );
+		int len = session->getIOChannel()->receive( session );
 
 		if( len > 0 ) {
 			if( 0 == session->getRunning() ) {
@@ -175,13 +175,15 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 			}
 			addEvent( session, EV_READ, -1 );
 		} else {
-			if( 0 == session->getRunning() ) {
-				syslog( LOG_NOTICE, "session(%d.%d) read error", sid.mKey, sid.mSeq );
-				SP_EventHelper::doError( session );
-			} else {
-				addEvent( session, EV_READ, -1 );
-				syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later",
-						sid.mKey, sid.mSeq );
+			if( EINTR != errno && EAGAIN != errno ) {
+				if( 0 == session->getRunning() ) {
+					syslog( LOG_NOTICE, "session(%d.%d) read error", sid.mKey, sid.mSeq );
+					SP_EventHelper::doError( session );
+				} else {
+					addEvent( session, EV_READ, -1 );
+					syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later",
+							sid.mKey, sid.mSeq );
+				}
 			}
 		}
 	} else {
@@ -210,7 +212,7 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 		int ret = 0;
 
 		if( session->getOutList()->getCount() > 0 ) {
-			int len = SP_EventHelper::transmit( session, fd );
+			int len = session->getIOChannel()->transmit( session );
 
 			if( len > 0 ) {
 				if( session->getOutList()->getCount() > 0 ) {
@@ -296,6 +298,7 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 			// always add a write event for sender, 
 			// so the pending input can be processed in onWrite
 			addEvent( session, EV_WRITE, -1 );
+			addEvent( session, EV_READ, -1 );
 		} else {
 			syslog( LOG_WARNING, "session(%d.%d) invalid, unknown FROM",
 					fromSid.mKey, fromSid.mSeq );
@@ -359,7 +362,9 @@ void SP_EventCallback :: addEvent( SP_Session * session, short events, int fd )
 		event_add( session->getWriteEvent(), &timeout );
 	}
 
-	if( events & EV_READ ) {
+	if( events & EV_READ && 0 == session->getReading() ) {
+		session->setReading( 1 );
+
 		if( fd < 0 ) fd = EVENT_FD( session->getWriteEvent() );
 
 		event_set( session->getReadEvent(), fd, events, onRead, session );
@@ -374,101 +379,9 @@ void SP_EventCallback :: addEvent( SP_Session * session, short events, int fd )
 
 //-------------------------------------------------------------------
 
-int SP_EventHelper :: setNonblock( int fd )
-{
-	int flags;
-
-	flags = fcntl( fd, F_GETFL);
-	if( flags < 0 ) return flags;
-
-	flags |= O_NONBLOCK;
-	if( fcntl( fd, F_SETFL, flags ) < 0 ) return -1;
-
-	return 0;
-}
-
-void SP_EventHelper :: inetNtoa( in_addr * addr, char * ip, int size )
-{
-#if defined (linux) || defined (__sgi) || defined (__hpux) || defined (__FreeBSD__)
-	const unsigned char *p = ( const unsigned char *) addr;
-	snprintf( ip, size, "%i.%i.%i.%i", p[0], p[1], p[2], p[3] );
-#else
-	snprintf( ip, size, "%i.%i.%i.%i", addr->s_net, addr->s_host, addr->s_lh, addr->s_impno );
-#endif
-}
-
 int SP_EventHelper :: isSystemSid( SP_Sid_t * sid )
 {
 	return sid->mKey == SP_Sid_t::eTimerKey && sid->mSeq == SP_Sid_t::eTimerSeq;
-}
-
-int SP_EventHelper :: tcpListen( const char * ip, int port, int * fd, int blocking )
-{
-	int ret = 0;
-
-	int listenFd = socket( AF_INET, SOCK_STREAM, 0 );
-	if( listenFd < 0 ) {
-		syslog( LOG_WARNING, "listen failed, errno %d, %s", errno, strerror( errno ) );
-		ret = -1;
-	}
-
-	if( 0 == ret && 0 == blocking ) {
-		if( setNonblock( listenFd ) < 0 ) {
-			syslog( LOG_WARNING, "failed to set socket to non-blocking" );
-			ret = -1;
-		}
-	}
-
-	if( 0 == ret ) {
-		int flags = 1;
-		if( setsockopt( listenFd, SOL_SOCKET, SO_REUSEADDR, &flags, sizeof( flags ) ) < 0 ) {
-			syslog( LOG_WARNING, "failed to set setsock to reuseaddr" );
-			ret = -1;
-		}
-		if( setsockopt( listenFd, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) ) < 0 ) {
-			syslog( LOG_WARNING, "failed to set socket to nodelay" );
-			ret = -1;
-		}
-	}
-
-	struct sockaddr_in addr;
-
-	if( 0 == ret ) {
-		memset( &addr, 0, sizeof( addr ) );
-		addr.sin_family = AF_INET;
-		addr.sin_port = htons( port );
-
-		addr.sin_addr.s_addr = INADDR_ANY;
-		if( '\0' != *ip ) {
-			if( 0 != inet_aton( ip, &addr.sin_addr ) ) {
-				syslog( LOG_WARNING, "failed to convert %s to inet_addr", ip );
-				ret = -1;
-			}
-		}
-	}
-
-	if( 0 == ret ) {
-		if( bind( listenFd, (struct sockaddr*)&addr, sizeof( addr ) ) < 0 ) {
-			syslog( LOG_WARNING, "bind failed, errno %d, %s", errno, strerror( errno ) );
-			ret = -1;
-		}
-	}
-
-	if( 0 == ret ) {
-		if( ::listen( listenFd, 5 ) < 0 ) {
-			syslog( LOG_WARNING, "listen failed, errno %d, %s", errno, strerror( errno ) );
-			ret = -1;
-		}
-	}
-
-	if( 0 != ret && listenFd >= 0 ) close( listenFd );
-
-	if( 0 == ret ) {
-		* fd = listenFd;
-		syslog( LOG_NOTICE, "Listen on port [%d]", port );
-	}
-
-	return ret;
 }
 
 void SP_EventHelper :: doWork( SP_Session * session )
@@ -610,93 +523,31 @@ void SP_EventHelper :: start( void * arg )
 	SP_Session * session = ( SP_Session * )arg;
 	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
 
-	SP_Response * response = new SP_Response( session->getSid() );
+	SP_IOChannel * ioChannel = session->getIOChannel();
 
-	if( 0 != session->getHandler()->start( session->getRequest(), response ) ) {
-		session->setStatus( SP_Session::eWouldExit );
+	int initRet = ioChannel->init( EVENT_FD( session->getWriteEvent() ) );
+
+	// always call SP_Handler::start
+	SP_Response * response = new SP_Response( session->getSid() );
+	int startRet = session->getHandler()->start( session->getRequest(), response );
+
+	int status = SP_Session::eWouldExit;
+
+	if( 0 == initRet ) {
+		if( 0 == startRet ) status = SP_Session::eNormal;
+	} else {
+		delete response;
+		// make an empty response
+		response = new SP_Response( session->getSid() );
 	}
 
+	session->setStatus( status );
 	session->setRunning( 0 );
-
 	msgqueue_push( (struct event_msgqueue*)eventArg->getResponseQueue(), response );
 }
 
 void SP_EventHelper :: doCompletion( SP_EventArg * eventArg, SP_Message * msg )
 {
 	eventArg->getOutputResultQueue()->push( msg );
-}
-
-int SP_EventHelper :: transmit( SP_Session * session, int fd )
-{
-#ifdef IOV_MAX
-	const static int SP_MAX_IOV = IOV_MAX;
-#else
-	const static int SP_MAX_IOV = 8;
-#endif
-
-	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
-
-	SP_ArrayList * outList = session->getOutList();
-	size_t outOffset = session->getOutOffset();
-
-	struct iovec iovArray[ SP_MAX_IOV ];
-	memset( iovArray, 0, sizeof( iovArray ) );
-
-	int iovSize = 0;
-
-	for( int i = 0; i < outList->getCount() && iovSize < SP_MAX_IOV; i++ ) {
-		SP_Message * msg = (SP_Message*)outList->getItem( i );
-
-		if( outOffset >= msg->getMsg()->getSize() ) {
-			outOffset -= msg->getMsg()->getSize();
-		} else {
-			iovArray[ iovSize ].iov_base = (char*)msg->getMsg()->getBuffer() + outOffset;
-			iovArray[ iovSize++ ].iov_len = msg->getMsg()->getSize() - outOffset;
-			outOffset = 0;
-		}
-
-		SP_MsgBlockList * blockList = msg->getFollowBlockList();
-		for( int j = 0; j < blockList->getCount() && iovSize < SP_MAX_IOV; j++ ) {
-			SP_MsgBlock * block = (SP_MsgBlock*)blockList->getItem( j );
-
-			if( outOffset >= block->getSize() ) {
-				outOffset -= block->getSize();
-			} else {
-				iovArray[ iovSize ].iov_base = (char*)block->getData() + outOffset;
-				iovArray[ iovSize++ ].iov_len = block->getSize() - outOffset;
-				outOffset = 0;
-			}
-		}
-	}
-
-	int len = writev( fd, iovArray, iovSize );
-
-	if( len > 0 ) {
-		outOffset = session->getOutOffset() + len;
-
-		for( ; outList->getCount() > 0; ) {
-			SP_Message * msg = (SP_Message*)outList->getItem( 0 );
-			if( outOffset >= msg->getTotalSize() ) {
-				msg = (SP_Message*)outList->takeItem( 0 );
-				outOffset = outOffset - msg->getTotalSize();
-
-				int index = msg->getToList()->find( session->getSid() );
-				if( index >= 0 ) msg->getToList()->take( index );
-				msg->getSuccess()->add( session->getSid() );
-
-				if( msg->getToList()->getCount() <= 0 ) {
-					doCompletion( eventArg, msg );
-				}
-			} else {
-				break;
-			}
-		}
-
-		session->setOutOffset( outOffset );
-	}
-
-	if( len > 0 && outList->getCount() > 0 ) transmit( session, fd );
-
-	return len;
 }
 

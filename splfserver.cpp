@@ -16,6 +16,7 @@
 #include "sphandler.hpp"
 #include "spexecutor.hpp"
 #include "sputils.hpp"
+#include "spioutils.hpp"
 
 #include "config.h"
 #include "event_msgqueue.h"
@@ -108,6 +109,11 @@ void SP_LFServer :: setReqQueueSize( int reqQueueSize, const char * refusedMsg )
 	mAcceptArg->mRefusedMsg = strdup( refusedMsg );
 }
 
+void SP_LFServer :: setIOChannelFactory( SP_IOChannelFactory * ioChannelFactory )
+{
+	mAcceptArg->mIOChannelFactory = ioChannelFactory;
+}
+
 void SP_LFServer :: shutdown()
 {
 	mIsShutdown = 1;
@@ -161,10 +167,13 @@ void SP_LFServer :: handleOneEvent()
 
 int SP_LFServer :: run()
 {
+	/* Don't die with SIGPIPE on remote read shutdown. That's dumb. */
+	signal( SIGPIPE, SIG_IGN );
+
 	int ret = 0;
 	int listenFD = -1;
 
-	ret = SP_EventHelper::tcpListen( mBindIP, mPort, &listenFD, 0 );
+	ret = SP_IOUtils::tcpListen( mBindIP, mPort, &listenFD, 0 );
 
 	if( 0 == ret ) {
 		// Clean close on SIGINT or SIGTERM.
