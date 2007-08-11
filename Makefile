@@ -12,7 +12,7 @@ LINT = lint -c
 RM = /bin/rm -f
 
 ifeq ($(origin version), undefined)
-	version = 0.6
+	version = 0.7
 endif
 
 LIBEVENT_INCL = -I../libevent/
@@ -68,13 +68,14 @@ testdispatcher: testdispatcher.o
 dist: clean spserver-$(version).src.tar.gz
 
 spserver-$(version).src.tar.gz:
-	@ls | grep -v CVS | grep -v .so | sed 's:^:spserver-$(version)/:' > MANIFEST
+	@find . -type f | grep -v CVS | grep -v .svn | sed s:^./:spserver-$(version)/: > MANIFEST
 	@(cd ..; ln -s spserver spserver-$(version))
 	(cd ..; tar cvf - `cat spserver/MANIFEST` | gzip > spserver/spserver-$(version).src.tar.gz)
 	@(cd ..; rm spserver-$(version))
 
 clean:
 	@( $(RM) *.o vgcore.* core core.* $(TARGET) )
+	@( cd openssl; make clean )
 
 #--------------------------------------------------------------------
 
