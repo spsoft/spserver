@@ -14,6 +14,7 @@ class SP_Buffer;
 class SP_Session;
 class SP_ArrayList;
 class SP_Request;
+class SP_IOChannel;
 
 struct event;
 
@@ -47,8 +48,14 @@ public:
 	int getRunning();
 	void setRunning( int running );
 
+	int getReading();
+	void setReading( int reading );
+
 	int getWriting();
 	void setWriting( int writing );
+
+	SP_IOChannel * getIOChannel();
+	void setIOChannel( SP_IOChannel * ioChannel );
 
 private:
 
@@ -69,9 +76,12 @@ private:
 	int mOutOffset;
 	SP_ArrayList * mOutList;
 
-	int mStatus;
-	short mRunning;
-	short mWriting;
+	char mStatus;
+	char mRunning;
+	char mWriting;
+	char mReading;
+
+	SP_IOChannel * mIOChannel;
 };
 
 typedef struct tagSP_SessionEntry SP_SessionEntry_t;

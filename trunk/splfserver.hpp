@@ -12,6 +12,7 @@ class SP_EventArg;
 class SP_ThreadPool;
 class SP_HandlerFactory;
 class SP_CompletionHandler;
+class SP_IOChannelFactory;
 
 typedef struct tagSP_AcceptArg SP_AcceptArg_t;
 
@@ -27,6 +28,7 @@ public:
 	void setMaxConnections( int maxConnections );
 	void setMaxThreads( int maxThreads );
 	void setReqQueueSize( int reqQueueSize, const char * refusedMsg );
+	void setIOChannelFactory( SP_IOChannelFactory * ioChannelFactory );
 
 	void shutdown();
 	int isRunning();

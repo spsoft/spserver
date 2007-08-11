@@ -20,6 +20,7 @@
 #include "spbuffer.hpp"
 #include "spmsgdecoder.hpp"
 #include "speventcb.hpp"
+#include "spioutils.hpp"
 
 class SP_EchoHandler : public SP_Handler {
 public:
@@ -110,11 +111,11 @@ int main( int argc, char * argv[] )
 	openlog( "testdispatcher", LOG_CONS | LOG_PID, LOG_USER );
 #endif
 
-	int maxConnections = 10, reqQueueSize = 10;
+	int maxConnections = 100, reqQueueSize = 10;
 	const char * refusedMsg = "System busy, try again later.";
 
 	int listenFd = -1;
-	if( 0 == SP_EventHelper::tcpListen( "", port, &listenFd ) ) {
+	if( 0 == SP_IOUtils::tcpListen( "", port, &listenFd ) ) {
 		SP_Dispatcher dispatcher( new SP_DefaultCompletionHandler(), maxThreads );
 		dispatcher.dispatch();
 

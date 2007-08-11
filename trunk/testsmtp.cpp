@@ -187,9 +187,9 @@ int main( int argc, char * argv[] )
 	}
 
 #ifdef LOG_PERROR
-	openlog( "testchat", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
+	openlog( "testsmtp", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
 #else
-	openlog( "testchat", LOG_CONS | LOG_PID, LOG_USER );
+	openlog( "testsmtp", LOG_CONS | LOG_PID, LOG_USER );
 #endif
 
 	if( 0 == strcasecmp( serverType, "hahs" ) ) {

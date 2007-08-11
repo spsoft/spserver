@@ -14,6 +14,7 @@
 #include "spbuffer.hpp"
 #include "sputils.hpp"
 #include "sprequest.hpp"
+#include "spiochannel.hpp"
 
 #include "config.h"
 #include "event.h"
@@ -129,6 +130,9 @@ SP_Session :: SP_Session( SP_Sid_t sid )
 	mStatus = eNormal;
 	mRunning = 0;
 	mWriting = 0;
+	mReading = 0;
+
+	mIOChannel = NULL;
 }
 
 SP_Session :: ~SP_Session()
@@ -152,6 +156,11 @@ SP_Session :: ~SP_Session()
 
 	delete mOutList;
 	mOutList = NULL;
+
+	if( NULL != mIOChannel ) {
+		delete mIOChannel;
+		mIOChannel = NULL;
+	}
 }
 
 struct event * SP_Session :: getReadEvent()
@@ -242,5 +251,25 @@ int SP_Session :: getWriting()
 void SP_Session :: setWriting( int writing )
 {
 	mWriting = writing;
+}
+
+int SP_Session :: getReading()
+{
+	return mReading;
+}
+
+void SP_Session :: setReading( int reading )
+{
+	mReading = reading;
+}
+
+SP_IOChannel * SP_Session :: getIOChannel()
+{
+	return mIOChannel;
+}
+
+void SP_Session :: setIOChannel( SP_IOChannel * ioChannel )
+{
+	mIOChannel = ioChannel;
 }
 

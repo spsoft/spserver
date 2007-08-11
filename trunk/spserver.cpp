@@ -19,6 +19,8 @@
 #include "spsession.hpp"
 #include "spexecutor.hpp"
 #include "sputils.hpp"
+#include "spiochannel.hpp"
+#include "spioutils.hpp"
 
 #include "config.h"
 #include "event_msgqueue.h"
@@ -32,6 +34,7 @@ SP_Server :: SP_Server( const char * bindIP, int port,
 	mIsRunning = 0;
 
 	mHandlerFactory = handlerFactory;
+	mIOChannelFactory = NULL;
 
 	mTimeout = 600;
 	mMaxThreads = 64;
@@ -45,8 +48,16 @@ SP_Server :: ~SP_Server()
 	if( NULL != mHandlerFactory ) delete mHandlerFactory;
 	mHandlerFactory = NULL;
 
+	if( NULL != mIOChannelFactory ) delete mIOChannelFactory;
+	mIOChannelFactory = NULL;
+
 	if( NULL != mRefusedMsg ) free( mRefusedMsg );
 	mRefusedMsg = NULL;
+}
+
+void SP_Server :: setIOChannelFactory( SP_IOChannelFactory * ioChannelFactory )
+{
+	mIOChannelFactory = ioChannelFactory;
 }
 
 void SP_Server :: setTimeout( int timeout )
@@ -147,7 +158,7 @@ int SP_Server :: start()
 	int ret = 0;
 	int listenFD = -1;
 
-	ret = SP_EventHelper::tcpListen( mBindIP, mPort, &listenFD, 0 );
+	ret = SP_IOUtils::tcpListen( mBindIP, mPort, &listenFD, 0 );
 
 	if( 0 == ret ) {
 
@@ -165,8 +176,12 @@ int SP_Server :: start()
 		SP_AcceptArg_t acceptArg;
 		memset( &acceptArg, 0, sizeof( SP_AcceptArg_t ) );
 
+		if( NULL == mIOChannelFactory ) {
+			mIOChannelFactory = new SP_DefaultIOChannelFactory();
+		}
 		acceptArg.mEventArg = &eventArg;
 		acceptArg.mHandlerFactory = mHandlerFactory;
+		acceptArg.mIOChannelFactory = mIOChannelFactory;
 		acceptArg.mReqQueueSize = mReqQueueSize;
 		acceptArg.mMaxConnections = mMaxConnections;
 		acceptArg.mRefusedMsg = mRefusedMsg;

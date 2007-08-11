@@ -28,12 +28,9 @@ public:
 	const void * find( const void * key, size_t len );
 
 private:
-	int read( int fd );
-	int write( int fd );
-
 	struct evbuffer * mBuffer;
 
-	friend class SP_EventCallback;
+	friend class SP_IOChannel;
 };
 
 #endif
