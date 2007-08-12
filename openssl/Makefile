@@ -23,7 +23,7 @@ LDFLAGS += $(LIBEVENT_LIB) $(OPENSSL_LIB) -lpthread -lresolv
 
 LIBOBJS = spopenssl.o
 
-TARGET =  libspopenssl.so \
+TARGET =  libspopenssl.so sptunnel \
 	testechos testhttps
 
 #--------------------------------------------------------------------
@@ -37,6 +37,9 @@ testechos: testechos.o
 	$(LINKER) $(LDFLAGS) $^ -L../ -lspserver -L. -lspopenssl -o $@
 
 testhttps: testhttps.o
+	$(LINKER) $(LDFLAGS) $^ -L../ -lspserver -L. -lspopenssl -o $@
+
+sptunnel: sptunnelimpl.o sptunnel.o
 	$(LINKER) $(LDFLAGS) $^ -L../ -lspserver -L. -lspopenssl -o $@
 
 clean:

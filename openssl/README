@@ -32,6 +32,13 @@ You can use the browser ( IE, Firefox, etc. ) to visit:
 
 	https://<the.ip.of.testhttps>:8008/
 
+bash-2.05a$ ./testechos 
+testechos[28745]: Listen on port [1995]
+
+You can use the stelnet to virus:
+
+	./stelnet 127.0.0.1 1995
+
 
 Enjoy!
 

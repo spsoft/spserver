@@ -102,7 +102,7 @@ int SP_OpensslChannel :: receive( SP_Session * session )
 	int ret = SSL_read( mSsl, buffer, sizeof( buffer ) );
 	if( ret > 0 ) {
 		session->getInBuffer()->append( buffer, ret );
-	} else {
+	} else if( ret < 0 ) {
 		ERR_error_string_n( ERR_get_error(), buffer, sizeof( buffer ) );
 		syslog( LOG_EMERG, "SSL_read fail, %s", buffer );
 	}

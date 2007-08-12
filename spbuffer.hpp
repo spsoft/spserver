@@ -27,6 +27,8 @@ public:
 	char * getLine();
 	const void * find( const void * key, size_t len );
 
+	SP_Buffer * take();
+
 private:
 	struct evbuffer * mBuffer;
 
