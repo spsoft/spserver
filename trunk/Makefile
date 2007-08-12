@@ -12,7 +12,7 @@ LINT = lint -c
 RM = /bin/rm -f
 
 ifeq ($(origin version), undefined)
-	version = 0.7
+	version = 0.7.5
 endif
 
 LIBEVENT_INCL = -I../libevent/

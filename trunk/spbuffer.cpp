@@ -35,7 +35,11 @@ int SP_Buffer :: append( const void * buffer, int len )
 
 int SP_Buffer :: append( const SP_Buffer * buffer )
 {
-	return append( buffer->getBuffer(), buffer->getSize() );
+	if( buffer->getSize() > 0 ) {
+		return append( buffer->getBuffer(), buffer->getSize() );
+	} else {
+		return 0;
+	}
 }
 
 void SP_Buffer :: erase( int len )
@@ -74,6 +78,17 @@ int SP_Buffer :: take( char * buffer, int len )
 	buffer[ len ] = '\0';
 
 	return len;
+}
+
+SP_Buffer * SP_Buffer :: take()
+{
+	SP_Buffer * ret = new SP_Buffer();
+
+	struct evbuffer * tmp = ret->mBuffer;
+	ret->mBuffer = mBuffer;
+	mBuffer = tmp;
+
+	return ret;
 }
 
 const void * SP_Buffer :: find( const void * key, size_t len )
