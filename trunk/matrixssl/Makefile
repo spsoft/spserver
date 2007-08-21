@@ -11,36 +11,33 @@ LINKER = $(CC)
 LINT = lint -c
 RM = /bin/rm -f
 
-OPENSSL_INCL = -I/usr/include/openssl/
-OPENSSL_LIB  = -L/usr/lib -lssl -lcrypto
+MASSL_INCL = -I$(HOME)/matrixssl-1-8-3-open/
+MASSL_LIB  = -L$(HOME)/matrixssl-1-8-3-open/src -lmatrixssl
 
 LIBEVENT_LIB  = -L$(HOME)/libevent -levent
 
 SPSERVER_INCL = -I../spserver
 SPSERVER_LIB  = -L../spserver -lspserver
 
-CFLAGS  += $(OPENSSL_INCL) $(SPSERVER_INCL)
-LDFLAGS += $(LIBEVENT_LIB) $(OPENSSL_LIB) $(SPSERVER_LIB)
+CFLAGS  += $(MASSL_INCL) $(SPSERVER_INCL)
+LDFLAGS += $(MASSL_LIB)  $(SPSERVER_LIB)  $(LIBEVENT_LIB)
 
 #--------------------------------------------------------------------
 
-LIBOBJS = spopenssl.o
+LIBOBJS = sslSocket.o spmatrixssl.o
 
-TARGET =  libspopenssl.so \
-	testechos testhttps
+TARGET =  libspmatrixssl.so \
+	testechos
 
 #--------------------------------------------------------------------
 
 all: $(TARGET)
 
-libspopenssl.so: $(LIBOBJS)
+libspmatrixssl.so: $(LIBOBJS)
 	$(LINKER) $(SOFLAGS) $^ -o $@
 
 testechos: testechos.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspopenssl -o $@
-
-testhttps: testhttps.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspopenssl -o $@
+	$(LINKER) $(LDFLAGS) $^ -L. -lspmatrixssl -o $@
 
 clean:
 	@( $(RM) *.o vgcore.* core core.* $(TARGET) )

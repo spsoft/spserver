@@ -11,36 +11,38 @@ LINKER = $(CC)
 LINT = lint -c
 RM = /bin/rm -f
 
-OPENSSL_INCL = -I/usr/include/openssl/
-OPENSSL_LIB  = -L/usr/lib -lssl -lcrypto
+ifeq ($(origin ssl), undefined)
+	ssl = openssl
+endif
+
+ifeq ($(ssl), openssl)
+	CFLAGS += -DOPENSSL
+	SSL_INCL = -I../openssl
+	SSL_LIB  = -L../openssl -lspopenssl -lssl -lcrypto
+else
+	CFLAGS += -DMATRIXSSL
+	SSL_INCL = -I../matrixssl
+	SSL_LIB  = -L../matrixssl -lspmatrixssl -lmatrixssl
+endif
 
 LIBEVENT_LIB  = -L$(HOME)/libevent -levent
 
 SPSERVER_INCL = -I../spserver
 SPSERVER_LIB  = -L../spserver -lspserver
 
-CFLAGS  += $(OPENSSL_INCL) $(SPSERVER_INCL)
-LDFLAGS += $(LIBEVENT_LIB) $(OPENSSL_LIB) $(SPSERVER_LIB)
+CFLAGS  += $(SSL_INCL) $(SPSERVER_INCL)
+LDFLAGS += $(LIBEVENT_LIB) $(SSL_LIB) $(SPSERVER_LIB)
 
 #--------------------------------------------------------------------
 
-LIBOBJS = spopenssl.o
-
-TARGET =  libspopenssl.so \
-	testechos testhttps
+TARGET =  sptunnel 
 
 #--------------------------------------------------------------------
 
 all: $(TARGET)
 
-libspopenssl.so: $(LIBOBJS)
-	$(LINKER) $(SOFLAGS) $^ -o $@
-
-testechos: testechos.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspopenssl -o $@
-
-testhttps: testhttps.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspopenssl -o $@
+sptunnel: sptunnelimpl.o sptunnel.o
+	$(LINKER) $(LDFLAGS) $^ -o $@
 
 clean:
 	@( $(RM) *.o vgcore.* core core.* $(TARGET) )
