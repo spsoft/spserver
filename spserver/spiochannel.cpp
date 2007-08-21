@@ -30,37 +30,7 @@ struct evbuffer * SP_IOChannel :: getEvBuffer( SP_Buffer * buffer )
 	return buffer->mBuffer;
 }
 
-//---------------------------------------------------------
-
-SP_IOChannelFactory :: ~SP_IOChannelFactory()
-{
-}
-
-//---------------------------------------------------------
-
-SP_DefaultIOChannel :: SP_DefaultIOChannel()
-{
-	mFd = -1;
-}
-
-SP_DefaultIOChannel :: ~SP_DefaultIOChannel()
-{
-	mFd = -1;
-}
-
-int SP_DefaultIOChannel :: init( int fd )
-{
-	mFd = fd;
-
-	return 0;
-}
-
-int SP_DefaultIOChannel :: receive( SP_Session * session )
-{
-	return evbuffer_read( getEvBuffer( session->getInBuffer() ), mFd, -1 );
-}
-
-int SP_DefaultIOChannel :: transmit( SP_Session * session )
+int SP_IOChannel :: transmit( SP_Session * session )
 {
 #ifdef IOV_MAX
 	const static int SP_MAX_IOV = IOV_MAX;
@@ -103,7 +73,7 @@ int SP_DefaultIOChannel :: transmit( SP_Session * session )
 		}
 	}
 
-	int len = writev( mFd, iovArray, iovSize );
+	int len = write_vec( iovArray, iovSize );
 
 	if( len > 0 ) {
 		outOffset = session->getOutOffset() + len;
@@ -132,6 +102,41 @@ int SP_DefaultIOChannel :: transmit( SP_Session * session )
 	if( len > 0 && outList->getCount() > 0 ) transmit( session );
 
 	return len;
+}
+
+//---------------------------------------------------------
+
+SP_IOChannelFactory :: ~SP_IOChannelFactory()
+{
+}
+
+//---------------------------------------------------------
+
+SP_DefaultIOChannel :: SP_DefaultIOChannel()
+{
+	mFd = -1;
+}
+
+SP_DefaultIOChannel :: ~SP_DefaultIOChannel()
+{
+	mFd = -1;
+}
+
+int SP_DefaultIOChannel :: init( int fd )
+{
+	mFd = fd;
+
+	return 0;
+}
+
+int SP_DefaultIOChannel :: receive( SP_Session * session )
+{
+	return evbuffer_read( getEvBuffer( session->getInBuffer() ), mFd, -1 );
+}
+
+int SP_DefaultIOChannel :: write_vec( struct iovec * iovArray, int iovSize )
+{
+	return writev( mFd, iovArray, iovSize );
 }
 
 //---------------------------------------------------------

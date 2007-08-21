@@ -17,7 +17,12 @@
 #include "spdispatcher.hpp"
 #include "spioutils.hpp"
 #include "sptunnelimpl.hpp"
+
+#ifdef OPENSSL
 #include "spopenssl.hpp"
+#else
+#include "spmatrixssl.hpp"
+#endif
 
 int main( int argc, char * argv[] )
 {
@@ -70,8 +75,12 @@ int main( int argc, char * argv[] )
 		dispatcher.setTimeout( 60 );
 		dispatcher.dispatch();
 
-		SP_OpensslChannelFactory * opensslFactory = new SP_OpensslChannelFactory();
-		opensslFactory->init( "demo.crt", "demo.key" );
+#ifdef	OPENSSL
+		SP_OpensslChannelFactory * sslFactory = new SP_OpensslChannelFactory();
+#else
+		SP_MatrixsslChannelFactory * sslFactory = new SP_MatrixsslChannelFactory();
+#endif
+		sslFactory->init( "demo.crt", "demo.key" );
 
 		for( ; ; ) {
 			struct sockaddr_in addr;
@@ -86,7 +95,7 @@ int main( int argc, char * argv[] )
 				} else {
 					SP_TunnelHandler * handler = new SP_TunnelHandler(
 							&dispatcher, dstHost, dstPort );
-					dispatcher.push( fd, handler, opensslFactory->create() );
+					dispatcher.push( fd, handler, sslFactory->create() );
 
 					// for non-ssl tunnel
 					//dispatcher.push( fd, handler, new SP_DefaultIOChannel() );

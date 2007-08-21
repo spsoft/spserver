@@ -11,6 +11,8 @@ class SP_Buffer;
 
 struct evbuffer;
 
+struct iovec;
+
 class SP_IOChannel {
 public:
 	virtual ~SP_IOChannel();
@@ -25,10 +27,13 @@ public:
 
 	// run in event-loop thread, cannot block
 	// return the number of bytes sent, or -1 if an error occurred.
-	virtual int transmit( SP_Session * session ) = 0;
+	virtual int transmit( SP_Session * session );
 
 protected:
 	static struct evbuffer * getEvBuffer( SP_Buffer * buffer );
+
+	// returns the number of bytes written, or -1 if an error occurred.
+	virtual int write_vec( struct iovec * iovArray, int iovSize ) = 0;
 };
 
 class SP_IOChannelFactory {
@@ -53,9 +58,9 @@ public:
 
 	virtual int init( int fd );
 	virtual int receive( SP_Session * session );
-	virtual int transmit( SP_Session * session );
 
-private:
+protected:
+	virtual int write_vec( struct iovec * iovArray, int iovSize );
 	int mFd;
 };
 

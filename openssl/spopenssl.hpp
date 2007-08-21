@@ -20,9 +20,9 @@ public:
 
 	virtual int receive( SP_Session * session );
 
-	virtual int transmit( SP_Session * session );
-
 private:
+	virtual int write_vec( struct iovec * vector, int count );
+
 	SSL_CTX * mCtx;
 	SSL * mSsl;
 };

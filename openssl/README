@@ -35,7 +35,7 @@ You can use the browser ( IE, Firefox, etc. ) to visit:
 bash-2.05a$ ./testechos 
 testechos[28745]: Listen on port [1995]
 
-You can use the stelnet to virus:
+You can use the stelnet to visit:
 
 	./stelnet 127.0.0.1 1995
 

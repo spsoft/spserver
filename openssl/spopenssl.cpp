@@ -110,82 +110,14 @@ int SP_OpensslChannel :: receive( SP_Session * session )
 	return ret;
 }
 
-int SP_OpensslChannel :: transmit( SP_Session * session )
+int SP_OpensslChannel :: write_vec( struct iovec * iovArray, int iovSize )
 {
-#ifdef IOV_MAX
-	const static int SP_MAX_IOV = IOV_MAX;
-#else
-	const static int SP_MAX_IOV = 8;
-#endif
-
-	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
-
-	SP_ArrayList * outList = session->getOutList();
-	size_t outOffset = session->getOutOffset();
-
-	struct iovec iovArray[ SP_MAX_IOV ];
-	memset( iovArray, 0, sizeof( iovArray ) );
-
-	int iovSize = 0;
-
-	for( int i = 0; i < outList->getCount() && iovSize < SP_MAX_IOV; i++ ) {
-		SP_Message * msg = (SP_Message*)outList->getItem( i );
-
-		if( outOffset >= msg->getMsg()->getSize() ) {
-			outOffset -= msg->getMsg()->getSize();
-		} else {
-			iovArray[ iovSize ].iov_base = (char*)msg->getMsg()->getBuffer() + outOffset;
-			iovArray[ iovSize++ ].iov_len = msg->getMsg()->getSize() - outOffset;
-			outOffset = 0;
-		}
-
-		SP_MsgBlockList * blockList = msg->getFollowBlockList();
-		for( int j = 0; j < blockList->getCount() && iovSize < SP_MAX_IOV; j++ ) {
-			SP_MsgBlock * block = (SP_MsgBlock*)blockList->getItem( j );
-
-			if( outOffset >= block->getSize() ) {
-				outOffset -= block->getSize();
-			} else {
-				iovArray[ iovSize ].iov_base = (char*)block->getData() + outOffset;
-				iovArray[ iovSize++ ].iov_len = block->getSize() - outOffset;
-				outOffset = 0;
-			}
-		}
-	}
-
 	int len = 0;
-
 	for( int i = 0; i < iovSize; i++ ) {
 		int ret = SSL_write( mSsl, iovArray[i].iov_base, iovArray[i].iov_len );
 		if( ret > 0 ) len += ret;
 		if( ret != (int)iovArray[i].iov_len ) break;
 	}
-
-	if( len > 0 ) {
-		outOffset = session->getOutOffset() + len;
-
-		for( ; outList->getCount() > 0; ) {
-			SP_Message * msg = (SP_Message*)outList->getItem( 0 );
-			if( outOffset >= msg->getTotalSize() ) {
-				msg = (SP_Message*)outList->takeItem( 0 );
-				outOffset = outOffset - msg->getTotalSize();
-
-				int index = msg->getToList()->find( session->getSid() );
-				if( index >= 0 ) msg->getToList()->take( index );
-				msg->getSuccess()->add( session->getSid() );
-
-				if( msg->getToList()->getCount() <= 0 ) {
-					eventArg->getOutputResultQueue()->push( msg );
-				}
-			} else {
-				break;
-			}
-		}
-
-		session->setOutOffset( outOffset );
-	}
-
-	if( len > 0 && outList->getCount() > 0 ) transmit( session );
 
 	return len;
 }
