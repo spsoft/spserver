@@ -7,7 +7,7 @@ Make a stress test for spserver/testsmtp
 
 = Details =
 {{{
-linux:/home/liusf/spserver/spserver # ./teststress -p 1025 -c 2000 -m 100
+bash # ./teststress -p 1025 -c 2000 -m 100
 Create 2000 connections to server, it will take some minutes to complete.
 ........................................................................................................................................................................................................
 waiting for 2000 client(s) to exit
@@ -24,5 +24,6 @@ client  Send    Recv
 total : 200000  202000
 }}}
 
+ 
  
  
