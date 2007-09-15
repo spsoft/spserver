@@ -17,6 +17,7 @@
 #include "spexecutor.hpp"
 #include "sputils.hpp"
 #include "spioutils.hpp"
+#include "spiochannel.hpp"
 
 #include "config.h"
 #include "event_msgqueue.h"
@@ -194,6 +195,10 @@ int SP_LFServer :: run()
 		event_add( mEvAccept, NULL );
 
 		mCompletionHandler = mAcceptArg->mHandlerFactory->createCompletionHandler();
+
+		if( NULL == mAcceptArg->mIOChannelFactory ) {
+			mAcceptArg->mIOChannelFactory = new SP_DefaultIOChannelFactory();
+		}
 
 		mThreadPool = new SP_ThreadPool( mMaxThreads );
 		for( int i = 0; i < mMaxThreads; i++ ) {

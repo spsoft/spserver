@@ -195,7 +195,8 @@ int main( int argc, char * argv[] )
 	if( 0 == strcasecmp( serverType, "hahs" ) ) {
 		SP_Server server( "", port, new SP_SmtpHandlerFactory() );
 
-		server.setTimeout( 60 );
+		server.setMaxConnections( 2048 );
+		server.setTimeout( 600 );
 		server.setMaxThreads( maxThreads );
 		server.setReqQueueSize( 100, "Sorry, server is busy now!\n" );
 
@@ -203,7 +204,8 @@ int main( int argc, char * argv[] )
 	} else {
 		SP_LFServer server( "", port, new SP_SmtpHandlerFactory() );
 
-		server.setTimeout( 60 );
+		server.setMaxConnections( 2048 );
+		server.setTimeout( 600 );
 		server.setMaxThreads( maxThreads );
 		server.setReqQueueSize( 100, "Sorry, server is busy now!\n" );
 
