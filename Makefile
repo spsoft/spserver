@@ -25,5 +25,6 @@ clean:
 	@( cd spserver; make clean )
 	@( cd openssl;  make clean )
 	@( cd matrixssl;  make clean )
+	@( cd gnutls;  make clean )
 	@( cd sptunnel;  make clean )
 
