@@ -28,7 +28,7 @@ LIBOBJS = sputils.o spioutils.o spiochannel.o \
 
 TARGET =  libspserver.so \
 		testecho testthreadpool testsmtp testchat teststress testhttp \
-		testhttpmsg testdispatcher
+		testhttpmsg testdispatcher testchat_d testunp
 
 #--------------------------------------------------------------------
 
@@ -59,6 +59,12 @@ testhttpmsg: sputils.o sphttpmsg.o testhttpmsg.o
 	$(LINKER) $(LDFLAGS) $^ -o $@
 
 testdispatcher: testdispatcher.o
+	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
+
+testchat_d: testchat_d.o
+	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
+
+testunp: testunp.o
 	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
 
 clean:
