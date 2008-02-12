@@ -1,5 +1,5 @@
 /*
- * Copyright 2007 Stephen Liu
+ * Copyright 2008 Stephen Liu
  * For license terms, see the file COPYING along with this library.
  */
 
@@ -10,15 +10,17 @@
 #include <syslog.h>
 #include <pthread.h>
 #include <signal.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 #include "spmsgdecoder.hpp"
 #include "spbuffer.hpp"
 
-#include "spserver.hpp"
-#include "splfserver.hpp"
+#include "spdispatcher.hpp"
 #include "sphandler.hpp"
 #include "spresponse.hpp"
 #include "sprequest.hpp"
+#include "spioutils.hpp"
 
 class SP_OnlineSidList {
 public:
@@ -257,49 +259,14 @@ void SP_ChatCompletionHandler :: completionMessage( SP_Message * msg )
 
 //---------------------------------------------------------
 
-class SP_ChatHandlerFactory : public SP_HandlerFactory {
-public:
-	SP_ChatHandlerFactory( SP_OnlineSidList * onlineSidList );
-	virtual ~SP_ChatHandlerFactory();
-
-	virtual SP_Handler * create() const;
-
-	virtual SP_CompletionHandler * createCompletionHandler() const;
-
-private:
-	SP_OnlineSidList * mOnlineSidList;
-};
-
-SP_ChatHandlerFactory :: SP_ChatHandlerFactory( SP_OnlineSidList * onlineSidList )
-{
-	mOnlineSidList = onlineSidList;
-}
-
-SP_ChatHandlerFactory :: ~SP_ChatHandlerFactory()
-{
-}
-
-SP_Handler * SP_ChatHandlerFactory :: create() const
-{
-	return new SP_ChatHandler( mOnlineSidList );
-}
-
-SP_CompletionHandler * SP_ChatHandlerFactory :: createCompletionHandler() const
-{
-	return new SP_ChatCompletionHandler();
-}
-
-//---------------------------------------------------------
-
 int main( int argc, char * argv[] )
 {
 	int port = 5555, maxThreads = 10;
-	const char * serverType = "hahs";
 
 	extern char *optarg ;
 	int c ;
 
-	while( ( c = getopt ( argc, argv, "p:t:s:v" )) != EOF ) {
+	while( ( c = getopt ( argc, argv, "p:t:v" )) != EOF ) {
 		switch ( c ) {
 			case 'p' :
 				port = atoi( optarg );
@@ -307,40 +274,46 @@ int main( int argc, char * argv[] )
 			case 't':
 				maxThreads = atoi( optarg );
 				break;
-			case 's':
-				serverType = optarg;
-				break;
 			case '?' :
 			case 'v' :
-				printf( "Usage: %s [-p <port>] [-t <threads>] [-s <hahs|lf>]\n", argv[0] );
+				printf( "Usage: %s [-p <port>] [-t <threads>]\n", argv[0] );
 				exit( 0 );
 		}
 	}
 
 #ifdef LOG_PERROR
-	openlog( "testchat", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
+	openlog( "testchat_d", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
 #else
-	openlog( "testchat", LOG_CONS | LOG_PID, LOG_USER );
+	openlog( "testchat_d", LOG_CONS | LOG_PID, LOG_USER );
 #endif
 
 	SP_OnlineSidList onlineSidList;
 
-	if( 0 == strcasecmp( serverType, "hahs" ) ) {
-		SP_Server server( "", port, new SP_ChatHandlerFactory( &onlineSidList ) );
+	int maxConnections = 100, reqQueueSize = 10;
+	const char * refusedMsg = "System busy, try again later.";
 
-		server.setTimeout( 60 );
-		server.setMaxThreads( maxThreads );
-		server.setReqQueueSize( 100, "Sorry, server is busy now!\n" );
+	int listenFd = -1;
+	if( 0 == SP_IOUtils::tcpListen( "", port, &listenFd ) ) {
+		SP_Dispatcher dispatcher( new SP_ChatCompletionHandler(), maxThreads );
+		dispatcher.dispatch();
 
-		server.runForever();
-	} else {
-		SP_LFServer server( "", port, new SP_ChatHandlerFactory( &onlineSidList ) );
+		for( ; ; ) {
+			struct sockaddr_in addr;
+			socklen_t socklen = sizeof( addr );
+			int fd = accept( listenFd, (struct sockaddr*)&addr, &socklen );
 
-		server.setTimeout( 60 );
-		server.setMaxThreads( maxThreads );
-		server.setReqQueueSize( 100, "Sorry, server is busy now!\n" );
-
-		server.runForever();
+			if( fd > 0 ) {
+				if( dispatcher.getSessionCount() >= maxConnections
+						|| dispatcher.getReqQueueLength() >= reqQueueSize ) {
+					write( fd, refusedMsg, strlen( refusedMsg ) );
+					close( fd );
+				} else {
+					dispatcher.push( fd, new SP_ChatHandler( &onlineSidList ) );
+				}
+			} else {
+				break;
+			}
+		}
 	}
 
 	closelog();
