@@ -89,7 +89,10 @@ SP_DotTermMsgDecoder :: ~SP_DotTermMsgDecoder()
 
 int SP_DotTermMsgDecoder :: decode( SP_Buffer * inBuffer )
 {
-	if( NULL != mBuffer ) free( mBuffer );
+	if( NULL != mBuffer ) {
+		free( mBuffer );
+		mBuffer = NULL;
+	}
 
 	const char * pos = (char*)inBuffer->find( "\r\n.\r\n", 5 );	
 
