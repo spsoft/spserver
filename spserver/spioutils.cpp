@@ -90,7 +90,7 @@ int SP_IOUtils :: tcpListen( const char * ip, int port, int * fd, int blocking )
 
 		addr.sin_addr.s_addr = INADDR_ANY;
 		if( '\0' != *ip ) {
-			if( 0 != inet_aton( ip, &addr.sin_addr ) ) {
+			if( 0 == inet_aton( ip, &addr.sin_addr ) ) {
 				syslog( LOG_WARNING, "failed to convert %s to inet_addr", ip );
 				ret = -1;
 			}
