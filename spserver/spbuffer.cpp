@@ -55,6 +55,7 @@ void SP_Buffer :: reset()
 const void * SP_Buffer :: getBuffer() const
 {
 	if( NULL != EVBUFFER_DATA( mBuffer ) ) {
+		evbuffer_expand( mBuffer, 1 );
 		((char*)(EVBUFFER_DATA( mBuffer )))[ getSize() ] = '\0';
 		return EVBUFFER_DATA( mBuffer );
 	} else {
