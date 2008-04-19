@@ -8,10 +8,10 @@
 #include <string.h>
 #include <pthread.h>
 #include <assert.h>
-#include <syslog.h>
 #include <errno.h>
 #include <signal.h>
-#include <unistd.h>
+
+#include "spporting.hpp"
 
 #include "spdispatcher.hpp"
 
@@ -23,13 +23,14 @@
 #include "spiochannel.hpp"
 #include "spioutils.hpp"
 
-#include "config.h"
 #include "event_msgqueue.h"
 
 SP_Dispatcher :: SP_Dispatcher( SP_CompletionHandler * completionHandler, int maxThreads )
 {
+#ifdef SIGPIPE
 	/* Don't die with SIGPIPE on remote read shutdown. That's dumb. */
 	signal( SIGPIPE, SIG_IGN );
+#endif
 
 	mIsShutdown = 0;
 	mIsRunning = 0;
@@ -91,14 +92,14 @@ int SP_Dispatcher :: dispatch()
 	assert( pthread_attr_setstacksize( &attr, 1024 * 1024 ) == 0 );
 	pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
 
-	pthread_t thread = 0;
+	pthread_t thread;
 	ret = pthread_create( &thread, &attr, reinterpret_cast<void*(*)(void*)>(eventLoop), this );
 	pthread_attr_destroy( &attr );
 	if( 0 == ret ) {
-		syslog( LOG_NOTICE, "Thread #%ld has been created for dispatcher", thread );
+		sp_syslog( LOG_NOTICE, "Thread #%ld has been created for dispatcher", thread );
 	} else {
 		mIsRunning = 0;
-		syslog( LOG_WARNING, "Unable to create a thread for dispatcher, %s",
+		sp_syslog( LOG_WARNING, "Unable to create a thread for dispatcher, %s",
 			strerror( errno ) ) ;
 	}
 
@@ -153,7 +154,7 @@ int SP_Dispatcher :: start()
 		}
 	}
 
-	syslog( LOG_NOTICE, "Dispatcher is shutdown." );
+	sp_syslog( LOG_NOTICE, "Dispatcher is shutdown." );
 
 	return 0;
 }

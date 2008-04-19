@@ -120,7 +120,7 @@ int main( int argc, char * argv[] )
 		dispatcher.dispatch();
 
 		struct timeval timeout;
-		timerclear( &timeout );
+		memset( &timeout, 0, sizeof( timeout ) );
 		timeout.tv_sec = 1;
 
 		dispatcher.push( &timeout, new SP_EchoTimerHandler() );

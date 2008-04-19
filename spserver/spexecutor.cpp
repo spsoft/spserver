@@ -5,16 +5,13 @@
 
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <sys/time.h>
 #include <assert.h>
-#include <syslog.h>
+
+#include "spporting.hpp"
 
 #include "spexecutor.hpp"
 #include "spthreadpool.hpp"
 
-#include "config.h"
 #include "event_msgqueue.h"
 
 SP_Task :: ~SP_Task()
@@ -63,13 +60,13 @@ SP_Executor :: SP_Executor( int maxThreads, const char * tag )
 	assert( pthread_attr_setstacksize( &attr, 1024 * 1024 ) == 0 );
 	pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
 
-	pthread_t thread = 0;
+	pthread_t thread;
 	int ret = pthread_create( &thread, &attr, reinterpret_cast<void*(*)(void*)>(eventLoop), this );
 	pthread_attr_destroy( &attr );
 	if( 0 == ret ) {
-		syslog( LOG_NOTICE, "[ex@%s] Thread #%ld has been created for executor", tag, thread );
+		sp_syslog( LOG_NOTICE, "[ex@%s] Thread #%ld has been created for executor", tag, thread );
 	} else {
-		syslog( LOG_WARNING, "[ex@%s] Unable to create a thread for executor", tag );
+		sp_syslog( LOG_WARNING, "[ex@%s] Unable to create a thread for executor", tag );
 	}
 }
 

@@ -8,8 +8,6 @@
 #define __spserver_hpp__
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 
 class SP_HandlerFactory;
 class SP_Session;

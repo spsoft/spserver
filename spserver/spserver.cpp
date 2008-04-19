@@ -7,11 +7,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <syslog.h>
 #include <errno.h>
-#include <unistd.h>
 #include <signal.h>
-#include <netinet/tcp.h>
+
 
 #include "spserver.hpp"
 #include "speventcb.hpp"
@@ -22,7 +20,6 @@
 #include "spiochannel.hpp"
 #include "spioutils.hpp"
 
-#include "config.h"
 #include "event_msgqueue.h"
 
 SP_Server :: SP_Server( const char * bindIP, int port,
@@ -102,14 +99,14 @@ int SP_Server :: run()
 	assert( pthread_attr_setstacksize( &attr, 1024 * 1024 ) == 0 );
 	pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
 
-	pthread_t thread = 0;
+	pthread_t thread;
 	ret = pthread_create( &thread, &attr, reinterpret_cast<void*(*)(void*)>(eventLoop), this );
 	pthread_attr_destroy( &attr );
 	if( 0 == ret ) {
-		syslog( LOG_NOTICE, "Thread #%ld has been created to listen on port [%d]", thread, mPort );
+		sp_syslog( LOG_NOTICE, "Thread #%ld has been created to listen on port [%d]", thread, mPort );
 	} else {
 		mIsRunning = 0;
-		syslog( LOG_WARNING, "Unable to create a thread for TCP server on port [%d], %s",
+		sp_syslog( LOG_WARNING, "Unable to create a thread for TCP server on port [%d], %s",
 			mPort, strerror( errno ) ) ;
 	}
 
@@ -152,8 +149,10 @@ void SP_Server :: outputCompleted( void * arg )
 
 int SP_Server :: start()
 {
+#ifdef SIGPIPE
 	/* Don't die with SIGPIPE on remote read shutdown. That's dumb. */
 	signal( SIGPIPE, SIG_IGN );
+#endif
 
 	int ret = 0;
 	int listenFD = -1;
@@ -218,14 +217,14 @@ int SP_Server :: start()
 
 		delete completionHandler;
 
-		syslog( LOG_NOTICE, "Server is shutdown." );
+		sp_syslog( LOG_NOTICE, "Server is shutdown." );
 
 		event_del( &evAccept );
 
 		signal_del( &evSigTerm );
 		signal_del( &evSigInt );
 
-		close( listenFD );
+		sp_close( listenFD );
 	}
 
 	return ret;

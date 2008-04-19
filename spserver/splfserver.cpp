@@ -7,7 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
-#include <unistd.h>
+
+#include "spporting.hpp"
 
 #include "splfserver.hpp"
 
@@ -19,7 +20,6 @@
 #include "spioutils.hpp"
 #include "spiochannel.hpp"
 
-#include "config.h"
 #include "event_msgqueue.h"
 
 SP_LFServer :: SP_LFServer( const char * bindIP, int port, SP_HandlerFactory * handlerFactory )
@@ -168,8 +168,10 @@ void SP_LFServer :: handleOneEvent()
 
 int SP_LFServer :: run()
 {
+#ifdef SIGPIPE
 	/* Don't die with SIGPIPE on remote read shutdown. That's dumb. */
 	signal( SIGPIPE, SIG_IGN );
+#endif
 
 	int ret = 0;
 	int listenFD = -1;

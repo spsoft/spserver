@@ -3,9 +3,10 @@
  * For license terms, see the file COPYING along with this library.
  */
 
-#include <sys/uio.h>
 #include <string.h>
 #include <assert.h>
+
+#include "spporting.hpp"
 
 #include "spiochannel.hpp"
 
@@ -16,7 +17,6 @@
 #include "spbuffer.hpp"
 #include "spmsgblock.hpp"
 
-#include "config.h"
 #include "event.h"
 
 //---------------------------------------------------------
@@ -136,7 +136,7 @@ int SP_DefaultIOChannel :: receive( SP_Session * session )
 
 int SP_DefaultIOChannel :: write_vec( struct iovec * iovArray, int iovSize )
 {
-	return writev( mFd, iovArray, iovSize );
+	return sp_writev( mFd, iovArray, iovSize );
 }
 
 //---------------------------------------------------------

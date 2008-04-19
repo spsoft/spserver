@@ -8,10 +8,7 @@
 #define __spresponse_hpp__
 
 #include <sys/types.h>
-
-#ifdef linux
-#include <stdint.h>
-#endif
+#include "spporting.hpp"
 
 class SP_Buffer;
 struct evbuffer;

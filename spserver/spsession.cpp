@@ -3,11 +3,12 @@
  * For license terms, see the file COPYING along with this library.
  */
 
-#include <sys/time.h>
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "spporting.hpp"
 
 #include "spsession.hpp"
 #include "sphandler.hpp"
@@ -16,7 +17,6 @@
 #include "sprequest.hpp"
 #include "spiochannel.hpp"
 
-#include "config.h"
 #include "event.h"
 
 //-------------------------------------------------------------------

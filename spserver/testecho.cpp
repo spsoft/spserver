@@ -6,9 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <syslog.h>
 #include <signal.h>
-#include <unistd.h>
+#include <assert.h>
+
+#include "spporting.hpp"
 
 #include "spmsgdecoder.hpp"
 #include "spbuffer.hpp"
@@ -68,6 +69,8 @@ public:
 int main( int argc, char * argv[] )
 {
 	int port = 3333;
+
+	assert( 0 == sp_initsock() );
 
 	SP_Server server( "", port, new SP_EchoHandlerFactory() );
 	server.runForever();

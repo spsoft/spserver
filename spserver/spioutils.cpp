@@ -3,16 +3,12 @@
  * For license terms, see the file COPYING along with this library.
  */
 
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netinet/tcp.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <fcntl.h>
-#include <sys/socket.h>
-#include <syslog.h>
 #include <errno.h>
 #include <string.h>
+
+#include "spporting.hpp"
 
 #include "spioutils.hpp"
 
@@ -28,6 +24,10 @@ void SP_IOUtils :: inetNtoa( in_addr * addr, char * ip, int size )
 
 int SP_IOUtils :: setNonblock( int fd )
 {
+#ifdef WIN32
+	unsigned long nonblocking = 1;
+	ioctlsocket( fd, FIONBIO, (unsigned long*) &nonblocking );
+#else
 	int flags;
 
 	flags = fcntl( fd, F_GETFL );
@@ -35,12 +35,20 @@ int SP_IOUtils :: setNonblock( int fd )
 
 	flags |= O_NONBLOCK;
 	if( fcntl( fd, F_SETFL, flags ) < 0 ) return -1;
+#endif
 
 	return 0;
 }
 
 int SP_IOUtils :: setBlock( int fd )
 {
+#ifdef WIN32
+
+	unsigned long nonblocking = 0;
+	ioctlsocket( fd, FIONBIO, (unsigned long*) &nonblocking );
+
+#else
+
 	int flags;
 
 	flags = fcntl( fd, F_GETFL );
@@ -48,6 +56,7 @@ int SP_IOUtils :: setBlock( int fd )
 
 	flags &= ~O_NONBLOCK;
 	if( fcntl( fd, F_SETFL, flags ) < 0 ) return -1;
+#endif
 
 	return 0;
 }
@@ -58,25 +67,25 @@ int SP_IOUtils :: tcpListen( const char * ip, int port, int * fd, int blocking )
 
 	int listenFd = socket( AF_INET, SOCK_STREAM, 0 );
 	if( listenFd < 0 ) {
-		syslog( LOG_WARNING, "listen failed, errno %d, %s", errno, strerror( errno ) );
+		sp_syslog( LOG_WARNING, "listen failed, errno %d, %s", errno, strerror( errno ) );
 		ret = -1;
 	}
 
 	if( 0 == ret && 0 == blocking ) {
 		if( setNonblock( listenFd ) < 0 ) {
-			syslog( LOG_WARNING, "failed to set socket to non-blocking" );
+			sp_syslog( LOG_WARNING, "failed to set socket to non-blocking" );
 			ret = -1;
 		}
 	}
 
 	if( 0 == ret ) {
 		int flags = 1;
-		if( setsockopt( listenFd, SOL_SOCKET, SO_REUSEADDR, &flags, sizeof( flags ) ) < 0 ) {
-			syslog( LOG_WARNING, "failed to set setsock to reuseaddr" );
+		if( setsockopt( listenFd, SOL_SOCKET, SO_REUSEADDR, (char*)&flags, sizeof( flags ) ) < 0 ) {
+			sp_syslog( LOG_WARNING, "failed to set setsock to reuseaddr" );
 			ret = -1;
 		}
-		if( setsockopt( listenFd, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) ) < 0 ) {
-			syslog( LOG_WARNING, "failed to set socket to nodelay" );
+		if( setsockopt( listenFd, IPPROTO_TCP, TCP_NODELAY, (char*)&flags, sizeof(flags) ) < 0 ) {
+			sp_syslog( LOG_WARNING, "failed to set socket to nodelay" );
 			ret = -1;
 		}
 	}
@@ -90,8 +99,8 @@ int SP_IOUtils :: tcpListen( const char * ip, int port, int * fd, int blocking )
 
 		addr.sin_addr.s_addr = INADDR_ANY;
 		if( '\0' != *ip ) {
-			if( 0 == inet_aton( ip, &addr.sin_addr ) ) {
-				syslog( LOG_WARNING, "failed to convert %s to inet_addr", ip );
+			if( 0 == sp_inet_aton( ip, &addr.sin_addr ) ) {
+				sp_syslog( LOG_WARNING, "failed to convert %s to inet_addr", ip );
 				ret = -1;
 			}
 		}
@@ -99,23 +108,23 @@ int SP_IOUtils :: tcpListen( const char * ip, int port, int * fd, int blocking )
 
 	if( 0 == ret ) {
 		if( bind( listenFd, (struct sockaddr*)&addr, sizeof( addr ) ) < 0 ) {
-			syslog( LOG_WARNING, "bind failed, errno %d, %s", errno, strerror( errno ) );
+			sp_syslog( LOG_WARNING, "bind failed, errno %d, %s", errno, strerror( errno ) );
 			ret = -1;
 		}
 	}
 
 	if( 0 == ret ) {
 		if( ::listen( listenFd, 1024 ) < 0 ) {
-			syslog( LOG_WARNING, "listen failed, errno %d, %s", errno, strerror( errno ) );
+			sp_syslog( LOG_WARNING, "listen failed, errno %d, %s", errno, strerror( errno ) );
 			ret = -1;
 		}
 	}
 
-	if( 0 != ret && listenFd >= 0 ) close( listenFd );
+	if( 0 != ret && listenFd >= 0 ) sp_close( listenFd );
 
 	if( 0 == ret ) {
 		* fd = listenFd;
-		syslog( LOG_NOTICE, "Listen on port [%d]", port );
+		sp_syslog( LOG_NOTICE, "Listen on port [%d]", port );
 	}
 
 	return ret;
