@@ -1,0 +1,53 @@
+			Building spserver for win32 with MSVC6
+
+1.Building libevent-1.4.3 with MSVC6
+
+	1) Get libevent through svn:
+		svn co -r 709 https://levent.svn.sourceforge.net/svnroot/levent/tags/release-1.4.3-stable libevent
+
+	2) Before building, it need do some change with libevent source code. Please refer
+		spserver/win32/libevent-msvc6/libevent.diff
+
+	3) Copy spserver/win32/libevent-msvc6 to libevent directory, use libevent.dsw to build libevent. 
+
+
+2. Building spserver
+
+Before building spserver, pthreads-win32 and libevent-1.4.3 must been installed.
+
+You can donwload pthreads-win32 from its home page, test with version 2.8.0.
+
+	http://sourceware.org/pthreads-win32/
+
+Directory structure:
+
+		.
+		|-- libevent
+		|   |-- WIN32-VC6
+		|   |   `-- Debug
+		|   |       `-- libevent.lib
+		|   |-- event-config.h
+		|   `-- event.h
+		|-- pthread
+		|   |-- include
+		|   |   |-- pthread.h
+		|   |   |-- sched.h
+		|   |   `-- semaphore.h
+		|   `-- lib
+		|       |-- pthreadVC2.dll
+		|       `-- pthreadVC2.lib
+		`-- spserver
+			|-- spserver
+			|   |-- spserver.cpp
+			|   |-- spserver.hpp
+			|   `-- ...
+			`-- win32
+				|-- spserver.dsw
+				`-- ...
+
+Reports of successful use of spserver are appreciated.
+
+Enjoy!
+
+				-- stephen liu <stephen.nil@gmail.com>
+

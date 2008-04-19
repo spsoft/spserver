@@ -7,7 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <syslog.h>
+#include "spporting.hpp"
 
 #include "spthreadpool.hpp"
 
@@ -45,13 +45,15 @@ SP_ThreadPool :: ~SP_ThreadPool()
 	pthread_mutex_lock( &mMainMutex );
 
 	if( mIndex < mTotal ) {
-		syslog( LOG_NOTICE, "[tp@%s] waiting for %d thread(s) to finish\n", mTag, mTotal - mIndex );
+		sp_syslog( LOG_NOTICE, "[tp@%s] waiting for %d thread(s) to finish\n", mTag, mTotal - mIndex );
 		pthread_cond_wait( &mFullCond, &mMainMutex );
 	}
 
 	mIsShutdown = 1;
 
-	for( int i = 0; i < mIndex; i++ ) {
+	int i = 0;
+
+	for( i = 0; i < mIndex; i++ ) {
 		SP_Thread_t * thread = mThreadList[ i ];
 		pthread_mutex_lock( &thread->mMutex );
 		pthread_cond_signal( &thread->mCond ) ;
@@ -59,12 +61,12 @@ SP_ThreadPool :: ~SP_ThreadPool()
 	}
 
 	if( mTotal > 0 ) {
-		syslog( LOG_NOTICE, "[tp@%s] waiting for %d thread(s) to exit\n", mTag, mTotal );
+		sp_syslog( LOG_NOTICE, "[tp@%s] waiting for %d thread(s) to exit\n", mTag, mTotal );
 		pthread_cond_wait( &mEmptyCond, &mMainMutex );
 	}
 
-	syslog( LOG_NOTICE, "[tp@%s] destroy %d thread structure(s)\n", mTag, mIndex );
-	for( int i = 0; i < mIndex; i++ ) {
+	sp_syslog( LOG_NOTICE, "[tp@%s] destroy %d thread structure(s)\n", mTag, mIndex );
+	for( i = 0; i < mIndex; i++ ) {
 		SP_Thread_t * thread = mThreadList[ i ];
 		pthread_mutex_destroy( &thread->mMutex );
 		pthread_cond_destroy( &thread->mCond );
@@ -108,7 +110,7 @@ int SP_ThreadPool :: dispatch( DispatchFunc_t dispatchFunc, void *arg )
 
 	if( mIndex <= 0 ) {
 		SP_Thread_t * thread = ( SP_Thread_t * )malloc( sizeof( SP_Thread_t ) );
-		thread->mId = 0;
+		memset( &thread->mId, 0, sizeof( thread->mId ) );
 		pthread_mutex_init( &thread->mMutex, NULL );
 		pthread_cond_init( &thread->mCond, NULL );
 		thread->mFunc = dispatchFunc;
@@ -120,10 +122,10 @@ int SP_ThreadPool :: dispatch( DispatchFunc_t dispatchFunc, void *arg )
 
 		if( 0 == pthread_create( &( thread->mId ), &attr, wrapperFunc, thread ) ) {
 			mTotal++;
-			syslog( LOG_NOTICE, "[tp@%s] create thread#%ld\n", mTag, thread->mId );
+			sp_syslog( LOG_NOTICE, "[tp@%s] create thread#%ld\n", mTag, thread->mId );
 		} else {
 			ret = -1;
-			syslog( LOG_WARNING, "[tp@%s] cannot create thread\n", mTag );
+			sp_syslog( LOG_WARNING, "[tp@%s] cannot create thread\n", mTag );
 			pthread_mutex_destroy( &thread->mMutex );
 			pthread_cond_destroy( &thread->mCond );
 			free( thread );

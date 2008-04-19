@@ -5,11 +5,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <syslog.h>
 #include <pthread.h>
 #include <signal.h>
+#include <assert.h>
 
 #include "spmsgdecoder.hpp"
 #include "spbuffer.hpp"
@@ -296,6 +295,7 @@ int main( int argc, char * argv[] )
 	int port = 5555, maxThreads = 10;
 	const char * serverType = "hahs";
 
+#ifndef WIN32
 	extern char *optarg ;
 	int c ;
 
@@ -316,12 +316,15 @@ int main( int argc, char * argv[] )
 				exit( 0 );
 		}
 	}
+#endif
 
 #ifdef LOG_PERROR
-	openlog( "testchat", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
+	sp_openlog( "testchat", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
 #else
-	openlog( "testchat", LOG_CONS | LOG_PID, LOG_USER );
+	sp_openlog( "testchat", LOG_CONS | LOG_PID, LOG_USER );
 #endif
+
+	assert( 0 == sp_initsock() );
 
 	SP_OnlineSidList onlineSidList;
 
@@ -343,7 +346,7 @@ int main( int argc, char * argv[] )
 		server.runForever();
 	}
 
-	closelog();
+	sp_closelog();
 
 	return 0;
 }

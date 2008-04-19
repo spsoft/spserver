@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "spporting.hpp"
+
 #include "sprequest.hpp"
 #include "spmsgdecoder.hpp"
 

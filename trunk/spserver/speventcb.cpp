@@ -5,13 +5,12 @@
 
 #include <fcntl.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <syslog.h>
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <sys/socket.h>
+
+#include "spporting.hpp"
 
 #include "speventcb.hpp"
 #include "spexecutor.hpp"
@@ -26,7 +25,6 @@
 #include "spiochannel.hpp"
 #include "spioutils.hpp"
 
-#include "config.h"   // from libevent, for event.h
 #include "event_msgqueue.h"
 #include "event.h"
 
@@ -98,19 +96,19 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 {
 	int clientFD;
 	struct sockaddr_in clientAddr;
-	socklen_t clientLen = sizeof( clientAddr );
+	int clientLen = sizeof( clientAddr );
 
 	SP_AcceptArg_t * acceptArg = (SP_AcceptArg_t*)arg;
 	SP_EventArg * eventArg = acceptArg->mEventArg;
 
-	clientFD = accept( fd, (struct sockaddr *)&clientAddr, &clientLen );
+	clientFD = accept( fd, (struct sockaddr *)&clientAddr, (socklen_t*)&clientLen );
 	if( -1 == clientFD ) {
-		syslog( LOG_WARNING, "accept failed" );
+		sp_syslog( LOG_WARNING, "accept failed" );
 		return;
 	}
 
 	if( SP_IOUtils::setNonblock( clientFD ) < 0 ) {
-		syslog( LOG_WARNING, "failed to set client socket non-blocking" );
+		sp_syslog( LOG_WARNING, "failed to set client socket non-blocking" );
 	}
 
 	SP_Sid_t sid;
@@ -135,7 +133,7 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 
 		if( eventArg->getSessionManager()->getCount() > acceptArg->mMaxConnections
 				|| eventArg->getInputResultQueue()->getLength() >= acceptArg->mReqQueueSize ) {
-			syslog( LOG_WARNING, "System busy, session.count %d [%d], queue.length %d [%d]",
+			sp_syslog( LOG_WARNING, "System busy, session.count %d [%d], queue.length %d [%d]",
 				eventArg->getSessionManager()->getCount(), acceptArg->mMaxConnections,
 				eventArg->getInputResultQueue()->getLength(), acceptArg->mReqQueueSize );
 
@@ -150,8 +148,8 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 			SP_EventHelper::doStart( session );
 		}
 	} else {
-		close( clientFD );
-		syslog( LOG_WARNING, "Out of memory, cannot allocate session object!" );
+		sp_close( clientFD );
+		sp_syslog( LOG_WARNING, "Out of memory, cannot allocate session object!" );
 	}
 }
 
@@ -177,11 +175,11 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 		} else {
 			if( EINTR != errno && EAGAIN != errno ) {
 				if( 0 == session->getRunning() ) {
-					syslog( LOG_NOTICE, "session(%d.%d) read error", sid.mKey, sid.mSeq );
+					sp_syslog( LOG_NOTICE, "session(%d.%d) read error", sid.mKey, sid.mSeq );
 					SP_EventHelper::doError( session );
 				} else {
 					addEvent( session, EV_READ, -1 );
-					syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later",
+					sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later",
 							sid.mKey, sid.mSeq );
 				}
 			}
@@ -191,7 +189,7 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 			SP_EventHelper::doTimeout( session );
 		} else {
 			addEvent( session, EV_READ, -1 );
-			syslog( LOG_NOTICE, "session(%d.%d) busy, process session timeout later",
+			sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session timeout later",
 					sid.mKey, sid.mSeq );
 		}
 	}
@@ -223,11 +221,11 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 				if( EINTR != errno && EAGAIN != errno ) {
 					ret = -1;
 					if( 0 == session->getRunning() ) {
-						syslog( LOG_NOTICE, "session(%d.%d) write error", sid.mKey, sid.mSeq );
+						sp_syslog( LOG_NOTICE, "session(%d.%d) write error", sid.mKey, sid.mSeq );
 						SP_EventHelper::doError( session );
 					} else {
 						addEvent( session, EV_WRITE, -1 );
-						syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later, errno [%d]",
+						sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later, errno [%d]",
 								sid.mKey, sid.mSeq, errno );
 					}
 				}
@@ -238,16 +236,16 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 			if( SP_Session::eExit == session->getStatus() ) {
 				ret = -1;
 				if( 0 == session->getRunning() ) {
-					syslog( LOG_NOTICE, "session(%d.%d) close, exit", sid.mKey, sid.mSeq );
+					sp_syslog( LOG_NOTICE, "session(%d.%d) close, exit", sid.mKey, sid.mSeq );
 
 					eventArg->getSessionManager()->remove( fd );
 					event_del( session->getReadEvent() );
 					handler->close();
-					close( fd );
+					sp_close( fd );
 					delete session;
 				} else {
 					addEvent( session, EV_WRITE, -1 );
-					syslog( LOG_NOTICE, "session(%d.%d) busy, terminate session later",
+					sp_syslog( LOG_NOTICE, "session(%d.%d) busy, terminate session later",
 							sid.mKey, sid.mSeq );
 				}
 			}
@@ -269,7 +267,7 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 			SP_EventHelper::doTimeout( session );
 		} else {
 			addEvent( session, EV_WRITE, -1 );
-			syslog( LOG_NOTICE, "session(%d.%d) busy, process session timeout later",
+			sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session timeout later",
 					sid.mKey, sid.mSeq );
 		}
 	}
@@ -282,7 +280,7 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 	SP_SessionManager * manager = eventArg->getSessionManager();
 
 	SP_Sid_t fromSid = response->getFromSid();
-	u_int16_t seq = 0;
+	uint16_t seq = 0;
 
 	if( ! SP_EventHelper::isSystemSid( &fromSid ) ) {
 		SP_Session * session = manager->get( fromSid.mKey, &seq );
@@ -300,7 +298,7 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 			addEvent( session, EV_WRITE, -1 );
 			addEvent( session, EV_READ, -1 );
 		} else {
-			syslog( LOG_WARNING, "session(%d.%d) invalid, unknown FROM",
+			sp_syslog( LOG_WARNING, "session(%d.%d) invalid, unknown FROM",
 					fromSid.mKey, fromSid.mSeq );
 		}
 	}
@@ -319,7 +317,7 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 							&& SP_Session::eExit == session->getStatus() ) {
 						sidList->take( i );
 						msg->getFailure()->add( sid );
-						syslog( LOG_WARNING, "session(%d.%d) would exit, invalid TO", sid.mKey, sid.mSeq );
+						sp_syslog( LOG_WARNING, "session(%d.%d) would exit, invalid TO", sid.mKey, sid.mSeq );
 					} else {
 						session->getOutList()->append( msg );
 						addEvent( session, EV_WRITE, -1 );
@@ -327,7 +325,7 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 				} else {
 					sidList->take( i );
 					msg->getFailure()->add( sid );
-					syslog( LOG_WARNING, "session(%d.%d) invalid, unknown TO", sid.mKey, sid.mSeq );
+					sp_syslog( LOG_WARNING, "session(%d.%d) invalid, unknown TO", sid.mKey, sid.mSeq );
 				}
 			}
 		} else {
@@ -395,7 +393,7 @@ void SP_EventHelper :: doWork( SP_Session * session )
 
 		char buffer[ 16 ] = { 0 };
 		session->getInBuffer()->take( buffer, sizeof( buffer ) );
-		syslog( LOG_WARNING, "session(%d.%d) status is %d, ignore [%s...] (%dB)",
+		sp_syslog( LOG_WARNING, "session(%d.%d) status is %d, ignore [%s...] (%dB)",
 			sid.mKey, sid.mSeq, session->getStatus(), buffer, session->getInBuffer()->getSize() );
 		session->getInBuffer()->reset();
 	}
@@ -459,9 +457,9 @@ void SP_EventHelper :: error( void * arg )
 
 	// onResponse will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
-	close( EVENT_FD( session->getWriteEvent() ) );
+	sp_close( EVENT_FD( session->getWriteEvent() ) );
 	delete session;
-	syslog( LOG_WARNING, "session(%d.%d) error, exit", sid.mKey, sid.mSeq );
+	sp_syslog( LOG_WARNING, "session(%d.%d) error, exit", sid.mKey, sid.mSeq );
 }
 
 void SP_EventHelper :: doTimeout( SP_Session * session )
@@ -505,9 +503,9 @@ void SP_EventHelper :: timeout( void * arg )
 
 	// onResponse will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
-	close( EVENT_FD( session->getWriteEvent() ) );
+	sp_close( EVENT_FD( session->getWriteEvent() ) );
 	delete session;
-	syslog( LOG_WARNING, "session(%d.%d) timeout, exit", sid.mKey, sid.mSeq );
+	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, exit", sid.mKey, sid.mSeq );
 }
 
 

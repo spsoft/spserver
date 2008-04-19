@@ -5,20 +5,14 @@
 
 #include <signal.h>
 #include <stdio.h>
-#include <sys/time.h>
 #include <sys/types.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <time.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 
-/* For inet_ntoa. */
-#include <arpa/inet.h>
+#include "spporting.hpp"
 
-#include "config.h"
 #include "event.h"
 
 static const char * gHost = "127.0.0.1";
@@ -72,7 +66,7 @@ void on_read( int fd, short events, void *arg )
 	SP_TestClient * client = ( SP_TestClient * ) arg;
 
 	if( EV_READ & events ) {
-		int len = read( fd, client->mBuffer, sizeof( client->mBuffer ) );
+		int len = recv( fd, client->mBuffer, sizeof( client->mBuffer ), 0 );
 		if( len <= 0 ) {
 			if( len < 0 && EINTR != errno && EAGAIN != errno ) {
 				fprintf( stderr, "#%d on_read error\n", fd );
@@ -105,7 +99,7 @@ void on_write( int fd, short events, void *arg )
 				"that tells us how to market ourselves to them.\r\n", client->mSendMsgs );
 		}
 
-		int len = write( fd, client->mBuffer, strlen( client->mBuffer ) );
+		int len = send( fd, client->mBuffer, strlen( client->mBuffer ), 0 );
 
 		if( len <= 0 && EINTR != errno && EAGAIN != errno ) {
 			fprintf( stderr, "#%d on_write error\n", fd );
@@ -121,6 +115,7 @@ void on_write( int fd, short events, void *arg )
 
 int main( int argc, char * argv[] )
 {
+#ifndef WIN32
 	extern char *optarg ;
 	int c ;
 
@@ -144,10 +139,15 @@ int main( int argc, char * argv[] )
 				exit( 0 );
 		}
 	}
+#endif
 
+#ifdef SIGPIPE
 	signal( SIGPIPE, SIG_IGN );
+#endif
 
-        event_init();
+	sp_initsock();
+
+	event_init();
 
 	SP_TestClient * clientList = (SP_TestClient*)calloc( gClients, sizeof( SP_TestClient ) );
 
@@ -157,20 +157,22 @@ int main( int argc, char * argv[] )
 	sin.sin_addr.s_addr = inet_addr( gHost );
 	sin.sin_port = htons( gPort );
 
-	int totalClients = gClients;
+	int totalClients = gClients, i = 0;
 
 	printf( "Create %d connections to server, it will take some minutes to complete.\n", gClients );
-	for( int i = 0; i < gClients; i++ ) {
+	for( i = 0; i < gClients; i++ ) {
 		SP_TestClient * client = clientList + i;
 
 		client->mFd = socket( AF_INET, SOCK_STREAM, 0 );
 		if( client->mFd < 0 ) {
 			fprintf(stderr, "socket failed\n");
+			getchar();
 			return -1;
 		}
 
 		if( connect( client->mFd, (struct sockaddr *)&sin, sizeof(sin) ) != 0) {
 			fprintf(stderr, "connect failed\n");
+			getchar();
 			return -1;
 		}
 
@@ -180,15 +182,14 @@ int main( int argc, char * argv[] )
 		event_set( &client->mReadEvent, client->mFd, EV_READ | EV_PERSIST, on_read, client );
 		event_add( &client->mReadEvent, NULL );
 
-		if( 0 == ( i % 10 ) ) write( fileno( stdout ), ".", 1 );
+		if( 0 == ( i % 10 ) ) send( fileno( stdout ), ".", 1, 0 );
 	}
 
 	time( &gStartTime );
 
 	struct timeval startTime, stopTime;
-	struct timezone startZone, stopZone;
 
-	gettimeofday( &startTime, &startZone );
+	sp_gettimeofday( &startTime, NULL );
 
 	time_t lastInfoTime = time( NULL );
 
@@ -202,7 +203,7 @@ int main( int argc, char * argv[] )
 		}
 	}
 
-	gettimeofday( &stopTime, &stopZone );
+	sp_gettimeofday( &stopTime, NULL );
 
 	// show result
 	printf( "\n\nTest result :\n" );
@@ -214,7 +215,7 @@ int main( int argc, char * argv[] )
 
 	printf( "client\tSend\tRecv\n" );
 	int totalSend = 0, totalRecv = 0;
-	for( int i = 0; i < totalClients; i++ ) {
+	for( i = 0; i < totalClients; i++ ) {
 		SP_TestClient * client = clientList + i;
 
 		//printf( "client#%d : %d\t%d\n", i, client->mSendMsgs, client->mRecvMsgs );
@@ -222,12 +223,17 @@ int main( int argc, char * argv[] )
 		totalSend += client->mSendMsgs;
 		totalRecv += client->mRecvMsgs;
 
-		close( client->mFd );
+		sp_close( client->mFd );
 	}
 
 	printf( "total : %d\t%d\n", totalSend, totalRecv );
 
 	free( clientList );
+
+#ifdef WIN32
+	printf( "\npress any key to exit ...\n" );
+	getchar();
+#endif
 
 	return 0;
 }

@@ -11,11 +11,9 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 
-#include "config.h"
+#include "spporting.hpp"
 #include "event_msgqueue.h"
 
 struct circqueue {
@@ -139,7 +137,7 @@ static void msgqueue_pop(int fd, short flags, void *arg) {
    struct event_msgqueue *msgq = arg;
    char buf[64];
 
-   read(fd, buf, sizeof(buf));
+   recv(fd, buf, sizeof(buf),0);
 
    pthread_mutex_lock(&msgq->lock);
    while(!circqueue_is_empty(msgq->queue)) {
@@ -166,15 +164,15 @@ struct event_msgqueue *msgqueue_new(struct event_base *base, unsigned int max_si
    if (!(cq = circqueue_new(max_size)))
       return(NULL);
 
-   if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0) {
+   if (sp_socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0) {
       circqueue_destroy(cq);
       return(NULL);
    }
 
    if (!(msgq = malloc(sizeof(struct event_msgqueue)))) {
       circqueue_destroy(cq);
-      close(fds[0]);
-      close(fds[1]);
+      sp_close(fds[0]);
+      sp_close(fds[1]);
       return(NULL);
    }
 
@@ -201,8 +199,8 @@ void msgqueue_destroy(struct event_msgqueue *msgq)
 
    event_del(&msgq->queue_ev);
    circqueue_destroy(msgq->queue);
-   close(msgq->push_fd);
-   close(msgq->pop_fd);
+   sp_close(msgq->push_fd);
+   sp_close(msgq->pop_fd);
    free(msgq);
 }
 
@@ -213,7 +211,7 @@ int msgqueue_push(struct event_msgqueue *msgq, void *msg) {
    pthread_mutex_lock(&msgq->lock);
    if ((r = circqueue_push_tail(msgq->queue, msg)) == 0) {
       if (circqueue_get_length(msgq->queue) == 1)
-         write(msgq->push_fd, buf, 1);
+         send(msgq->push_fd, buf, 1,0);
    }
    pthread_mutex_unlock(&msgq->lock);
 

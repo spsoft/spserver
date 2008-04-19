@@ -6,7 +6,7 @@
 #ifndef __spioutils_hpp__
 #define __spioutils_hpp__
 
-#include <netinet/in.h>
+#include "spporting.hpp"
 
 class SP_IOUtils {
 public:

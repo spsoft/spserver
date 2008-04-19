@@ -7,6 +7,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "spporting.hpp"
+
 #include "sphttpmsg.hpp"
 #include "sputils.hpp"
 

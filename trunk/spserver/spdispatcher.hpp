@@ -6,7 +6,7 @@
 #ifndef __spdispatcher_hpp__
 #define __spdispatcher_hpp__
 
-#include <sys/time.h>
+#include "spporting.hpp"
 
 class SP_CompletionHandler;
 class SP_Handler;
