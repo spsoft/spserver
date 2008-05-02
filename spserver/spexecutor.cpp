@@ -12,7 +12,7 @@
 #include "spexecutor.hpp"
 #include "spthreadpool.hpp"
 
-#include "event_msgqueue.h"
+#include "sputils.hpp"
 
 SP_Task :: ~SP_Task()
 {
@@ -47,8 +47,7 @@ SP_Executor :: SP_Executor( int maxThreads, const char * tag )
 
 	mThreadPool = new SP_ThreadPool( maxThreads, tag );
 
-	mEventBase = (void*)event_init();
-	mQueue = msgqueue_new( (struct event_base*)mEventBase, 0, msgQueueCallback, this );
+	mQueue = new SP_BlockingQueue();
 
 	mIsShutdown = 0;
 
@@ -86,9 +85,8 @@ SP_Executor :: ~SP_Executor()
 	delete mThreadPool;
 	mThreadPool = NULL;
 
-	msgqueue_destroy( (struct event_msgqueue*)mQueue );
-
-	//event_base_free( mEventBase );
+	delete mQueue;
+	mQueue = NULL;
 }
 
 void SP_Executor :: shutdown()
@@ -108,7 +106,15 @@ void * SP_Executor :: eventLoop( void * arg )
 	SP_Executor * executor = ( SP_Executor * )arg;
 
 	while( 0 == executor->mIsShutdown ) {
-		event_base_loop( (struct event_base*)executor->mEventBase, EVLOOP_ONCE );
+		void * queueData = executor->mQueue->pop();
+
+		if( executor->mThreadPool->getMaxThreads() > 1 ) {
+			if( 0 != executor->mThreadPool->dispatch( worker, queueData ) ) {
+				worker( queueData );
+			}
+		} else {
+			worker( queueData );
+		}
 	}
 
 	pthread_mutex_lock( &executor->mMutex );
@@ -117,19 +123,6 @@ void * SP_Executor :: eventLoop( void * arg )
 	pthread_mutex_unlock( &executor->mMutex );
 
 	return NULL;
-}
-
-void SP_Executor :: msgQueueCallback( void * queueData, void * arg )
-{
-	SP_Executor * executor = ( SP_Executor * )arg;
-
-	if( executor->mThreadPool->getMaxThreads() > 1 ) {
-		if( 0 != executor->mThreadPool->dispatch( worker, queueData ) ) {
-			worker( queueData );
-		}
-	} else {
-		worker( queueData );
-	}
 }
 
 void SP_Executor :: worker( void * arg )
@@ -142,7 +135,7 @@ void SP_Executor :: worker( void * arg )
 
 void SP_Executor :: execute( SP_Task * task )
 {
-	msgqueue_push( (struct event_msgqueue*)mQueue, task );
+	mQueue->push( task );
 }
 
 void SP_Executor :: execute( void ( * func ) ( void * ), void * arg )
@@ -153,6 +146,6 @@ void SP_Executor :: execute( void ( * func ) ( void * ), void * arg )
 
 int SP_Executor :: getQueueLength()
 {
-	return msgqueue_length( (struct event_msgqueue*)mQueue );
+	return mQueue->getLength();
 }
 

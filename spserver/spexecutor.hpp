@@ -10,6 +10,7 @@
 #include <pthread.h>
 
 class SP_ThreadPool;
+class SP_BlockingQueue;
 
 class SP_Task {
 public:
@@ -49,8 +50,7 @@ private:
 	static void * eventLoop( void * arg );
 
 	SP_ThreadPool * mThreadPool;
-	void * mQueue;
-	void * mEventBase;
+	SP_BlockingQueue * mQueue;
 
 	int mIsShutdown;
 
