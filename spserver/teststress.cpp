@@ -92,11 +92,11 @@ void on_write( int fd, short events, void *arg )
 		client->mSendMsgs++;
 
 		if( client->mSendMsgs >= gMsgs ) {
-			snprintf( client->mBuffer, sizeof( client->mBuffer ), "quit\r\n" );
+			snprintf( client->mBuffer, sizeof( client->mBuffer ), "quit\n" );
 		} else {
 			snprintf( client->mBuffer, sizeof( client->mBuffer ),
 				"mail #%d, It's good to see how people hire; "
-				"that tells us how to market ourselves to them.\r\n", client->mSendMsgs );
+				"that tells us how to market ourselves to them.\n", client->mSendMsgs );
 		}
 
 		int len = send( fd, client->mBuffer, strlen( client->mBuffer ), 0 );
@@ -182,7 +182,7 @@ int main( int argc, char * argv[] )
 		event_set( &client->mReadEvent, client->mFd, EV_READ | EV_PERSIST, on_read, client );
 		event_add( &client->mReadEvent, NULL );
 
-		if( 0 == ( i % 10 ) ) send( fileno( stdout ), ".", 1, 0 );
+		if( 0 == ( i % 10 ) ) write( fileno( stdout ), ".", 1 );
 	}
 
 	time( &gStartTime );
@@ -205,13 +205,13 @@ int main( int argc, char * argv[] )
 
 	sp_gettimeofday( &stopTime, NULL );
 
+	double totalTime = (double) ( 1000000 * ( stopTime.tv_sec - startTime.tv_sec )
+			+ ( stopTime.tv_usec - startTime.tv_usec ) ) / 1000000;
+
 	// show result
 	printf( "\n\nTest result :\n" );
 	printf( "Clients : %d, Messages Per Client : %d\n", totalClients, gMsgs );
-	printf( "ExecTimes: %.6f seconds\n\n",
-		(double) ( 1000000 * ( stopTime.tv_sec - startTime.tv_sec )
-			+ ( stopTime.tv_usec - startTime.tv_usec ) )
-		/ 1000000 );
+	printf( "ExecTimes: %.6f seconds\n\n", totalTime );
 
 	printf( "client\tSend\tRecv\n" );
 	int totalSend = 0, totalRecv = 0;
@@ -226,7 +226,8 @@ int main( int argc, char * argv[] )
 		sp_close( client->mFd );
 	}
 
-	printf( "total : %d\t%d\n", totalSend, totalRecv );
+	printf( "total   : %d\t%d\n", totalSend, totalRecv );
+	printf( "average : %.0f/s\t%.0f/s\n", totalSend / totalTime, totalRecv / totalTime );
 
 	free( clientList );
 
