@@ -199,9 +199,6 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 {
 	SP_Session * session = (SP_Session*)arg;
 
-	SP_Handler * handler = session->getHandler();
-	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
-
 	session->setWriting( 0 );
 
 	SP_Sid_t sid = session->getSid();
@@ -236,13 +233,8 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 			if( SP_Session::eExit == session->getStatus() ) {
 				ret = -1;
 				if( 0 == session->getRunning() ) {
-					sp_syslog( LOG_NOTICE, "session(%d.%d) close, exit", sid.mKey, sid.mSeq );
-
-					eventArg->getSessionManager()->remove( fd );
-					event_del( session->getReadEvent() );
-					handler->close();
-					sp_close( fd );
-					delete session;
+					sp_syslog( LOG_NOTICE, "session(%d.%d) normal exit", sid.mKey, sid.mSeq );
+					SP_EventHelper::doClose( session );
 				} else {
 					addEvent( session, EV_WRITE, -1 );
 					sp_syslog( LOG_NOTICE, "session(%d.%d) busy, terminate session later",
@@ -508,6 +500,28 @@ void SP_EventHelper :: timeout( void * arg )
 	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, exit", sid.mKey, sid.mSeq );
 }
 
+void SP_EventHelper :: doClose( SP_Session * session )
+{
+	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
+
+	event_del( session->getWriteEvent() );
+	event_del( session->getReadEvent() );
+
+	SP_Sid_t sid = session->getSid();
+
+	eventArg->getSessionManager()->remove( sid.mKey );
+
+	eventArg->getInputResultQueue()->push( new SP_SimpleTask( myclose, session, 1 ) );
+}
+
+void SP_EventHelper :: myclose( void * arg )
+{
+	SP_Session * session = ( SP_Session * )arg;
+
+	session->getHandler()->close();
+	sp_close( EVENT_FD( session->getWriteEvent() ) );
+	delete session;
+}
 
 void SP_EventHelper :: doStart( SP_Session * session )
 {

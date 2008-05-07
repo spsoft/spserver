@@ -81,6 +81,9 @@ public:
 	static void doTimeout( SP_Session * session );
 	static void timeout( void * arg );
 
+	static void doClose( SP_Session * session );
+	static void myclose( void * arg );
+
 	static void doCompletion( SP_EventArg * eventArg, SP_Message * msg );
 
 	static int isSystemSid( SP_Sid_t * sid );
