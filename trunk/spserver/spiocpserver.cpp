@@ -138,22 +138,23 @@ void * SP_IocpServer :: acceptThread( void * arg )
 {
 	DWORD recvBytes = 0;
 
-	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)arg;
+	SP_IocpAcceptArg_t * acceptArg = (SP_IocpAcceptArg_t*)arg;
 	
 	for( ; ; ) {
-		iocpSession->mClient = (HANDLE)WSASocket(AF_INET, SOCK_STREAM, IPPROTO_IP, NULL, 0, WSA_FLAG_OVERLAPPED);
-		memset( &( iocpSession->mRecvEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
+		acceptArg->mClientSocket = (HANDLE)WSASocket( AF_INET, SOCK_STREAM,
+				IPPROTO_IP, NULL, 0, WSA_FLAG_OVERLAPPED );
+		memset( &( acceptArg->mOverlapped ), 0, sizeof( OVERLAPPED ) );
 
-		int ret = AcceptEx( (SOCKET)iocpSession->mHandle, (SOCKET)iocpSession->mClient, iocpSession->mBuffer,
-				0, sizeof(struct sockaddr_in) + 16, sizeof(struct sockaddr_in) + 16,
-				&recvBytes, &( iocpSession->mRecvEvent.mOverlapped ) );
+		int ret = AcceptEx( (SOCKET)acceptArg->mListenSocket, (SOCKET)acceptArg->mClientSocket,
+				acceptArg->mBuffer,	0, sizeof(struct sockaddr_in) + 16, sizeof(struct sockaddr_in) + 16,
+				&recvBytes, &( acceptArg->mOverlapped ) );
 
 		if( ret == SOCKET_ERROR && (ERROR_IO_PENDING != WSAGetLastError()) ) {
 			sp_syslog( LOG_ERR, "AcceptEx() fail, errno %d", WSAGetLastError() );
 		}
 
-		WaitForSingleObject( iocpSession->mAcceptArg->mAcceptEvent, INFINITE );
-		ResetEvent( iocpSession->mAcceptArg->mAcceptEvent );
+		WaitForSingleObject( acceptArg->mAcceptEvent, INFINITE );
+		ResetEvent( acceptArg->mAcceptEvent );
 	}
 
 	return NULL;
@@ -174,6 +175,7 @@ int SP_IocpServer :: start()
 	if( 0 == ret ) {
 
 		SP_IocpEventArg eventArg( mTimeout );
+		eventArg.loadDisconnectEx( listenFD );
 
 		SP_IocpAcceptArg_t acceptArg;
 		memset( &acceptArg, 0, sizeof( acceptArg ) );
@@ -184,20 +186,17 @@ int SP_IocpServer :: start()
 		acceptArg.mRefusedMsg = mRefusedMsg;
 		acceptArg.mAcceptEvent = CreateEvent( NULL, TRUE, FALSE, NULL );
 
-		SP_IocpSession_t * acceptSession = (SP_IocpSession_t*)malloc( sizeof( SP_IocpSession_t ) );
-		acceptSession->mAcceptArg = &acceptArg;
-		acceptSession->mEventArg = &eventArg;
-		acceptSession->mHandle = (HANDLE)listenFD;
-		acceptSession->mRecvEvent.mType = SP_IocpEvent_t::eEventAccept;
+		acceptArg.mEventArg = &eventArg;
+		acceptArg.mListenSocket = (HANDLE)listenFD;
 
-		if( NULL == CreateIoCompletionPort( acceptSession->mHandle,
+		if( NULL == CreateIoCompletionPort( acceptArg.mListenSocket,
 				eventArg.getCompletionPort(), SP_IocpEventCallback::eKeyAccept, 0 ) ) {
 			sp_syslog( LOG_ERR, "CreateIoCompletionPort fail, errno %d", WSAGetLastError() );
 			return -1;		
 		}
 
 		pthread_t thread;
-		ret = pthread_create( &thread, NULL, reinterpret_cast<void*(*)(void*)>(acceptThread), acceptSession );
+		ret = pthread_create( &thread, NULL, reinterpret_cast<void*(*)(void*)>(acceptThread), &acceptArg );
 		if( 0 == ret ) {
 			sp_syslog( LOG_NOTICE, "Thread #%ld has been created to accept socket", thread );
 		} else {
@@ -211,7 +210,7 @@ int SP_IocpServer :: start()
 
 		/* Start the event loop. */
 		while( 0 == mIsShutdown ) {
-			SP_IocpEventCallback::eventLoop( &eventArg, acceptSession );
+			SP_IocpEventCallback::eventLoop( &eventArg, &acceptArg );
 
 			for( ; NULL != eventArg.getInputResultQueue()->top(); ) {
 				SP_Task * task = (SP_Task*)eventArg.getInputResultQueue()->pop();

@@ -39,6 +39,8 @@ SP_IocpEventArg :: SP_IocpEventArg( int timeout )
 	if( NULL == mCompletionPort ) {
 		sp_syslog( LOG_ERR, "CreateIoCompletionPort failed, errno %d", WSAGetLastError() );
 	}
+
+	mDisconnectExFunc = NULL;
 }
 
 SP_IocpEventArg :: ~SP_IocpEventArg()
@@ -85,6 +87,28 @@ SP_SessionManager * SP_IocpEventArg :: getSessionManager()
 int SP_IocpEventArg :: getTimeout()
 {
 	return mTimeout;
+}
+
+int SP_IocpEventArg :: loadDisconnectEx( SOCKET fd )
+{
+	LPFN_DISCONNECTEX fnDisConnectEx = NULL;
+	GUID guidDisConnectEx = WSAID_DISCONNECTEX;
+	DWORD dwByte;
+	::WSAIoctl( fd, SIO_GET_EXTENSION_FUNCTION_POINTER,
+			&guidDisConnectEx, sizeof(guidDisConnectEx),
+			&fnDisConnectEx, sizeof(fnDisConnectEx),
+			&dwByte, NULL, NULL); 
+
+	mDisconnectExFunc = fnDisConnectEx;
+
+	return NULL != mDisconnectExFunc ? 0 : -1;
+}
+
+BOOL SP_IocpEventArg :: disconnectEx( SOCKET fd )
+{
+	LPFN_DISCONNECTEX fnDisConnectEx = (LPFN_DISCONNECTEX)mDisconnectExFunc;
+	if( NULL != fnDisConnectEx ) return fnDisConnectEx( fd, NULL, 0, 0 );
+	return FALSE;
 }
 
 //===================================================================
@@ -332,13 +356,12 @@ BOOL SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession, int bytesTr
 	return TRUE;
 }
 
-BOOL SP_IocpEventCallback :: onAccept( SP_IocpSession_t * iocpSession )
+BOOL SP_IocpEventCallback :: onAccept( SP_IocpAcceptArg_t * acceptArg )
 {
-	SP_IocpAcceptArg_t * acceptArg = iocpSession->mAcceptArg;
-	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
+	SP_IocpEventArg * eventArg = acceptArg->mEventArg;
 
 	SP_Sid_t sid;
-	sid.mKey = (uint16_t) iocpSession->mClient;
+	sid.mKey = (uint16_t) acceptArg->mClientSocket;
 	eventArg->getSessionManager()->get( sid.mKey, &sid.mSeq );
 
 	SP_Session * session = new SP_Session( sid );
@@ -346,7 +369,7 @@ BOOL SP_IocpEventCallback :: onAccept( SP_IocpSession_t * iocpSession )
 	int localLen = 0, remoteLen = 0;
 	struct sockaddr_in * localAddr = NULL, * remoteAddr = NULL;
 
-	GetAcceptExSockaddrs( iocpSession->mBuffer, 0,
+	GetAcceptExSockaddrs( acceptArg->mBuffer, 0,
 		sizeof( sockaddr_in ) + 16, sizeof( sockaddr_in ) + 16,
 		(SOCKADDR**)&localAddr, &localLen, (SOCKADDR**)&remoteAddr, &remoteLen );
 
@@ -357,16 +380,16 @@ BOOL SP_IocpEventCallback :: onAccept( SP_IocpSession_t * iocpSession )
 	SP_IOUtils::inetNtoa( &( clientAddr.sin_addr ), clientIP, sizeof( clientIP ) );
 	session->getRequest()->setClientIP( clientIP );
 
-	assert( addSession( eventArg, iocpSession->mClient, session ) );
-
 	eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
 
 	session->setHandler( acceptArg->mHandlerFactory->create() );	
 
+	assert( addSession( eventArg, acceptArg->mClientSocket, session ) );
+
 	SP_IocpEventHelper::doStart( session );
 
 	// signal SP_IocpServer::acceptThread to post another AcceptEx
-	SetEvent( iocpSession->mAcceptArg->mAcceptEvent );
+	SetEvent( acceptArg->mAcceptEvent );
 
 	return TRUE;
 }
@@ -439,7 +462,7 @@ void SP_IocpEventCallback :: onResponse( void * queueData, void * arg )
 	delete response;
 }
 
-BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpSession_t * acceptSession )
+BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAcceptArg_t * acceptArg )
 {
 	DWORD bytesTransferred = 0;
 	DWORD completionKey = 0;
@@ -493,7 +516,7 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpSessi
 	}
 
 	if( eKeyAccept == completionKey ) {
-		return onAccept( acceptSession );
+		return onAccept( acceptArg );
 	} else if( eKeyResponse == completionKey ) {
 		SP_IocpMsgQueue_t * msgQueue = eventArg->getResponseQueue();
 
@@ -601,16 +624,7 @@ void SP_IocpEventHelper :: close( void * arg )
 
 	session->getHandler()->close();
 
-	LPFN_DISCONNECTEX fnDisConnectEx = NULL;
-	GUID guidDisConnectEx = WSAID_DISCONNECTEX;
-	DWORD dwByte;
-	::WSAIoctl( (SOCKET)iocpSession->mHandle,
-			SIO_GET_EXTENSION_FUNCTION_POINTER,
-			&guidDisConnectEx, sizeof(guidDisConnectEx),
-			&fnDisConnectEx, sizeof(fnDisConnectEx),
-			&dwByte, NULL, NULL); 
-
-	if( NULL != fnDisConnectEx && ! fnDisConnectEx( (SOCKET)iocpSession->mHandle, NULL, 0, 0 ) ) {
+	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle ) ) {
 		if( ERROR_IO_PENDING != WSAGetLastError () ) {
 			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
 		}
