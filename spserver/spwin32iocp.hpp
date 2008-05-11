@@ -34,6 +34,10 @@ public:
 
 	SP_SessionManager * getSessionManager();
 
+	int loadDisconnectEx( SOCKET fd );
+
+	BOOL disconnectEx( SOCKET fd );
+
 	void setTimeout( int timeout );
 	int getTimeout();
 
@@ -43,6 +47,8 @@ private:
 	SP_IocpMsgQueue_t * mResponseQueue;
 
 	SP_SessionManager * mSessionManager;
+
+	void * mDisconnectExFunc;
 
 	int mTimeout;
 
@@ -55,6 +61,15 @@ typedef struct tagSP_IocpAcceptArg {
 	int mReqQueueSize;
 	int mMaxConnections;
 	char * mRefusedMsg;
+
+	// per handle data
+	SP_IocpEventArg * mEventArg;
+	HANDLE mListenSocket;
+
+	// per io data
+	OVERLAPPED mOverlapped;
+	HANDLE mClientSocket;
+	char mBuffer[ 1024 ];
 
 	HANDLE mAcceptEvent;
 } SP_IocpAcceptArg_t;
@@ -72,10 +87,10 @@ public:
 
 	static BOOL onRecv( SP_IocpSession_t * iocpSession, int bytesTransferred );
 	static BOOL onSend( SP_IocpSession_t * iocpSession, int bytesTransferred );
-	static BOOL onAccept( SP_IocpSession_t * iocpSession );
+	static BOOL onAccept( SP_IocpAcceptArg_t * acceptArg );
 	static void onResponse( void * queueData, void * arg );
 	
-	static BOOL eventLoop( SP_IocpEventArg * eventArg, SP_IocpSession_t * acceptSession );
+	static BOOL eventLoop( SP_IocpEventArg * eventArg, SP_IocpAcceptArg_t * acceptArg );
 
 	static BOOL transmit( SP_IocpSession_t * iocpSession, int bytesTransferred );
 
@@ -124,11 +139,7 @@ typedef struct tagSP_IocpEvent {
 } SP_IocpEvent_t;
 
 typedef struct tagSP_IocpSession {
-	union {
-		SP_Session * mSession;
-		SP_IocpAcceptArg_t * mAcceptArg;
-	};
-
+	SP_Session * mSession;
 	SP_IocpEventArg * mEventArg;
 
 	HANDLE mHandle;
@@ -137,7 +148,6 @@ typedef struct tagSP_IocpSession {
 	SP_IocpEvent_t mSendEvent;
 
 	char mBuffer[ 4096 ];
-	HANDLE mClient;
 } SP_IocpSession_t;
 
 #endif

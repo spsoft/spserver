@@ -1,5 +1,5 @@
 /*
- * Copyright 2007 Stephen Liu
+ * Copyright 2008 Stephen Liu
  * For license terms, see the file COPYING along with this library.
  */
 
@@ -301,7 +301,6 @@ SP_CompletionHandler * SP_ChatHandlerFactory :: createCompletionHandler() const
 int main( int argc, char * argv[] )
 {
 	int port = 5555, maxThreads = 10;
-	const char * serverType = "hahs";
 
 	assert( 0 == sp_initsock() );
 

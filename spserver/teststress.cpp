@@ -165,13 +165,13 @@ int main( int argc, char * argv[] )
 
 		client->mFd = socket( AF_INET, SOCK_STREAM, 0 );
 		if( client->mFd < 0 ) {
-			fprintf(stderr, "socket failed\n");
+			fprintf(stderr, "socket failed, errno %d, %s\n", errno, strerror( errno ) );
 			getchar();
 			return -1;
 		}
 
 		if( connect( client->mFd, (struct sockaddr *)&sin, sizeof(sin) ) != 0) {
-			fprintf(stderr, "connect failed\n");
+			fprintf(stderr, "connect failed, errno %d, %s\n", errno, strerror( errno ) );
 			getchar();
 			return -1;
 		}
