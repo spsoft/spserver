@@ -85,15 +85,32 @@ int spwin32_socketpair(int d, int type, int protocol, int socks[2])
 
 int spwin32_gettimeofday(struct timeval* tv, void * ) 
 {
-	union {
-		long ns100;
-		FILETIME ft;
-	} now;
+#if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
+  #define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
+#else
+  #define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
+#endif
 
-	GetSystemTimeAsFileTime (&now.ft);
-	tv->tv_usec = (long) ((now.ns100 / 10L ) % 1000000L);
-	tv->tv_sec = (long) ((now.ns100 - 116444736000000000L) / 10000000L);
-	return (0);
+	FILETIME ft;
+	unsigned __int64 tmpres = 0;
+	static int tzflag;
+
+	if (NULL != tv)
+	{
+		GetSystemTimeAsFileTime(&ft);
+
+		tmpres |= ft.dwHighDateTime;
+		tmpres <<= 32;
+		tmpres |= ft.dwLowDateTime;
+
+		/*converting file time to unix epoch*/
+		tmpres /= 10;  /*convert into microseconds*/
+		tmpres -= DELTA_EPOCH_IN_MICROSECS; 
+		tv->tv_sec = (long)(tmpres / 1000000UL);
+		tv->tv_usec = (long)(tmpres % 1000000UL);
+	}
+
+	return 0;
 }
 
 void spwin32_syslog (int priority, const char * format, ...)
@@ -105,7 +122,11 @@ void spwin32_syslog (int priority, const char * format, ...)
 	_vsnprintf( logTemp, sizeof( logTemp ), format, vaList );
 	va_end ( vaList );
 
-	printf( "%s\n", logTemp );
+	if( strchr( logTemp, '\n' ) ) {
+		printf( "%s", logTemp );
+	} else {
+		printf( "%s\n", logTemp );
+	}
 }
 
 void spwin32_closelog (void)
@@ -125,7 +146,7 @@ int spwin32_initsocket()
 {
 	WSADATA wsaData;
 	
-	int err = WSAStartup( MAKEWORD( 1, 1 ), &wsaData );
+	int err = WSAStartup( MAKEWORD( 2, 0 ), &wsaData );
 	if ( err != 0 ) {
 		spwin32_syslog( LOG_EMERG, "Couldn't find a useable winsock.dll." );
 		return -1;
