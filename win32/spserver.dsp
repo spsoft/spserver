@@ -121,6 +121,10 @@ SOURCE=..\spserver\spiochannel.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\spserver\spiocpserver.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\spserver\spioutils.cpp
 # End Source File
 # Begin Source File
@@ -158,6 +162,10 @@ SOURCE=..\spserver\spthreadpool.cpp
 # Begin Source File
 
 SOURCE=..\spserver\sputils.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\spserver\spwin32iocp.cpp
 # End Source File
 # Begin Source File
 
@@ -205,6 +213,10 @@ SOURCE=..\spserver\spiochannel.hpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\spserver\spiocpserver.hpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\spserver\spioutils.hpp
 # End Source File
 # Begin Source File
@@ -246,6 +258,10 @@ SOURCE=..\spserver\spthreadpool.hpp
 # Begin Source File
 
 SOURCE=..\spserver\sputils.hpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\spserver\spwin32iocp.hpp
 # End Source File
 # Begin Source File
 

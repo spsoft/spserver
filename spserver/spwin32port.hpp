@@ -7,6 +7,7 @@
 #define __spwin32port_hpp__
 
 #include <winsock2.h>
+#include <mswsock.h>
 #include <windows.h>
 #include <io.h>
 
@@ -16,6 +17,11 @@ extern "C" {
 
 typedef unsigned short uint16_t;
 typedef int socklen_t;
+
+#ifndef WSAID_DISCONNECTEX
+	#define WSAID_DISCONNECTEX {0x7fda2e11,0x8630,0x436f,{0xa0, 0x31, 0xf5, 0x36, 0xa6, 0xee, 0xc1, 0x57}}
+	typedef BOOL (WINAPI *LPFN_DISCONNECTEX)(SOCKET, LPOVERLAPPED, DWORD, DWORD);
+#endif
 
 #define snprintf _snprintf
 #define strcasecmp stricmp

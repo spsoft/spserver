@@ -75,6 +75,42 @@ Package=<4>
 
 ###############################################################################
 
+Project: "testiocpchat"=.\testiocpchat.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "testiocpecho"=.\testiocpecho.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "testiocphttp"=.\testiocphttp.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "testsmtp"=.\testsmtp.dsp - Package Owner=<4>
 
 Package=<5>
