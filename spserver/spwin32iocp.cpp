@@ -382,13 +382,14 @@ BOOL SP_IocpEventCallback :: onAccept( SP_IocpAcceptArg_t * acceptArg )
 	SP_IOUtils::inetNtoa( &( clientAddr.sin_addr ), clientIP, sizeof( clientIP ) );
 	session->getRequest()->setClientIP( clientIP );
 
-	eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
-
 	session->setHandler( acceptArg->mHandlerFactory->create() );	
 
-	assert( addSession( eventArg, acceptArg->mClientSocket, session ) );
-
-	SP_IocpEventHelper::doStart( session );
+	if( addSession( eventArg, acceptArg->mClientSocket, session ) ) {
+		eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
+		SP_IocpEventHelper::doStart( session );
+	} else {
+		delete session;
+	}
 
 	// signal SP_IocpServer::acceptThread to post another AcceptEx
 	SetEvent( acceptArg->mAcceptEvent );
@@ -655,8 +656,6 @@ void SP_IocpEventHelper :: close( void * arg )
 	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
 	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
 			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
-	//free( iocpSession );
-	//delete session;
 
 	sp_syslog( LOG_NOTICE, "session(%d.%d) close, exit", sid.mKey, sid.mSeq );
 }
@@ -707,8 +706,10 @@ void SP_IocpEventHelper :: error( void * arg )
 	// the other threads will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
 
-	free( iocpSession );
-	delete session;
+	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
+	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
+			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
+
 	sp_syslog( LOG_WARNING, "session(%d.%d) error, exit", sid.mKey, sid.mSeq );
 }
 
@@ -758,8 +759,10 @@ void SP_IocpEventHelper :: timeout( void * arg )
 	// the other threads will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
 
-	free( iocpSession );
-	delete session;
+	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
+	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
+			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
+
 	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, exit", sid.mKey, sid.mSeq );
 }
 
