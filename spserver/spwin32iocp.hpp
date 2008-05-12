@@ -79,7 +79,7 @@ typedef struct tagSP_IocpSession SP_IocpSession_t;
 class SP_IocpEventCallback {
 public:
 
-	enum { eKeyAccept, eKeyResponse };
+	enum { eKeyAccept, eKeyResponse, eKeyFree };
 
 	static BOOL addSession( SP_IocpEventArg * eventArg, HANDLE client, SP_Session * session );
 	static BOOL addRecv( SP_Session * session );
@@ -131,7 +131,7 @@ private:
 
 typedef struct tagSP_IocpEvent {
 	enum { SP_IOCP_MAX_IOV = 8 };
-	enum { eEventRecv, eEventSend, eEventAccept };
+	enum { eEventRecv, eEventSend };
 
 	OVERLAPPED mOverlapped;
 	WSABUF mWsaBuf[ SP_IOCP_MAX_IOV ];
@@ -146,6 +146,7 @@ typedef struct tagSP_IocpSession {
 
 	SP_IocpEvent_t mRecvEvent;
 	SP_IocpEvent_t mSendEvent;
+	OVERLAPPED mFreeEvent;
 
 	char mBuffer[ 4096 ];
 } SP_IocpSession_t;
