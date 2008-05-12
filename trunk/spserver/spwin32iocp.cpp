@@ -313,6 +313,8 @@ BOOL SP_IocpEventCallback :: transmit( SP_IocpSession_t * iocpSession, int bytes
 
 BOOL SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession, int bytesTransferred )
 {
+	BOOL ret = TRUE;
+
 	SP_Session * session = iocpSession->mSession;
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 
@@ -341,7 +343,7 @@ BOOL SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession, int bytesTr
 			// So no need to add write event here.
 		}
 
-		transmit( iocpSession, bytesTransferred );
+		ret = transmit( iocpSession, bytesTransferred );
 
 		if( session->getOutList()->getCount() <= 0 ) {
 			if( SP_Session::eExit == session->getStatus() ) {
@@ -353,7 +355,7 @@ BOOL SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession, int bytesTr
 		}
 	}
 
-	return TRUE;
+	return ret;
 }
 
 BOOL SP_IocpEventCallback :: onAccept( SP_IocpAcceptArg_t * acceptArg )
@@ -466,11 +468,11 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 {
 	DWORD bytesTransferred = 0;
 	DWORD completionKey = 0;
-	SP_IocpEvent_t * iocpEvent = NULL;
+	OVERLAPPED * overlapped = NULL;
 	HANDLE completionPort = eventArg->getCompletionPort();
 
 	BOOL isSuccess = GetQueuedCompletionStatus( completionPort, &bytesTransferred,
-			&completionKey, (LPOVERLAPPED*)&iocpEvent, INFINITE );
+			&completionKey, &overlapped, INFINITE );
 	DWORD lastError = WSAGetLastError();
 
 	SP_IocpSession_t * iocpSession = NULL;
@@ -486,7 +488,7 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 	}
 
 	if( ! isSuccess ) {
-		if( NULL != iocpEvent ) {
+		if( NULL != overlapped ) {
 			// process a failed completed I/O request
 			// lastError continas the reason for failure
 
@@ -530,7 +532,15 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 			onResponse( response, eventArg );
 		}
 		return TRUE;
+	} else if( eKeyFree == completionKey ) {
+		assert( NULL == iocpSession );
+		iocpSession = CONTAINING_RECORD( overlapped, SP_IocpSession_t, mFreeEvent );
+		delete iocpSession->mSession;
+		free( iocpSession );
+		return TRUE;
 	} else {
+		if( NULL == iocpSession ) return TRUE;
+
 		if( bytesTransferred == 0 )	{
 			if( NULL != iocpSession ) {
 				SP_IocpEventHelper::doClose( iocpSession->mSession );
@@ -538,12 +548,20 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 			return TRUE;
 		}
 
+		SP_IocpEvent_t * iocpEvent = 
+				CONTAINING_RECORD( overlapped, SP_IocpEvent_t, mOverlapped );
 		if( SP_IocpEvent_t::eEventRecv == iocpEvent->mType ) {
-			return onRecv( iocpSession, bytesTransferred );
+			if( ! onRecv( iocpSession, bytesTransferred ) ) {
+				SP_IocpEventHelper::doError( iocpSession->mSession );
+			}
+			return TRUE;
 		}
 
 		if( SP_IocpEvent_t::eEventSend == iocpEvent->mType ) {
-			return onSend( iocpSession, bytesTransferred );
+			if( ! onSend( iocpSession, bytesTransferred ) ) {
+				SP_IocpEventHelper::doError( iocpSession->mSession );
+			}
+			return TRUE;
 		}
 	}
 
@@ -634,8 +652,11 @@ void SP_IocpEventHelper :: close( void * arg )
 		sp_syslog( LOG_ERR, "close(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
 	}
 
-	free( iocpSession );
-	delete session;
+	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
+	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
+			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
+	//free( iocpSession );
+	//delete session;
 
 	sp_syslog( LOG_NOTICE, "session(%d.%d) close, exit", sid.mKey, sid.mSeq );
 }
