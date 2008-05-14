@@ -502,7 +502,7 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 				return TRUE;
 			} else {
 				char errmsg[ 512 ] = { 0 };
-				SP_IocpEventHelper::getErrMsg( WSAGetLastError(), errmsg, sizeof( errmsg ) );
+				spwin32_strerror( WSAGetLastError(), errmsg, sizeof( errmsg ) );
 				sp_syslog( LOG_ERR, "GetQueuedCompletionStatus fail, errno %d, %s",
 						WSAGetLastError(), errmsg );
 				return FALSE;
@@ -806,13 +806,4 @@ void SP_IocpEventHelper :: enqueue( SP_IocpEventArg * eventArg, SP_Response * re
 			SP_IocpEventCallback::eKeyResponse, NULL );
 	}
 	LeaveCriticalSection( &( msgQueue->mMutex ) );
-}
-
-void SP_IocpEventHelper :: getErrMsg( DWORD lastError, char * errmsg, size_t len )
-{
-	if (!FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, lastError, 0,
-			errmsg, len - 1, NULL)) {
-		/* if we fail, call ourself to find out why and return that error */
-		getErrMsg( GetLastError(), errmsg, len );  
-	}
 }

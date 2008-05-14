@@ -11,6 +11,10 @@
 #include <time.h>
 #include <string.h>
 
+#ifdef WIN32
+#include "spgetopt.h"
+#endif
+
 #include "spporting.hpp"
 
 #include "event.h"
@@ -115,7 +119,6 @@ void on_write( int fd, short events, void *arg )
 
 int main( int argc, char * argv[] )
 {
-#ifndef WIN32
 	extern char *optarg ;
 	int c ;
 
@@ -139,7 +142,6 @@ int main( int argc, char * argv[] )
 				exit( 0 );
 		}
 	}
-#endif
 
 #ifdef SIGPIPE
 	signal( SIGPIPE, SIG_IGN );
@@ -232,8 +234,7 @@ int main( int argc, char * argv[] )
 	free( clientList );
 
 #ifdef WIN32
-	printf( "\npress any key to exit ...\n" );
-	getchar();
+	spwin32_pause_console();
 #endif
 
 	return 0;

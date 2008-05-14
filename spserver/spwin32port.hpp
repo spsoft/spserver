@@ -54,8 +54,18 @@ extern int spwin32_inet_aton(const char *c, struct in_addr* addr);
 
 extern int spwin32_socketpair(int d, int type, int protocol, int sv[2]);
 
+/* @return >0 OK, 0 FAIL */
+extern DWORD spwin32_getppid(void);
+
+/* @return 0 OK, -1 Fail*/
+extern int spwin32_getexefile( DWORD pid, char * path, int size );
+
+extern const char * spwin32_strerror( DWORD lastError, char * errmsg, size_t len );
+
 /* @return 0 OK, -1 Fail */
 extern int spwin32_initsocket();
+
+extern void spwin32_pause_console();
 
 extern int spwin32_gettimeofday(struct timeval* tv, void * );
 
