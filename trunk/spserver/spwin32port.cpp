@@ -8,6 +8,9 @@
 
 #include "spwin32port.hpp"
 
+#include <lm.h>
+#include <tlhelp32.h>
+
 /* Windows doesn't have writev() but does have WSASend */
 int spwin32_writev(SOCKET sock, const struct iovec *vector, DWORD count)
 {
@@ -153,4 +156,99 @@ int spwin32_initsocket()
 	}
 
 	return 0;
+}
+
+DWORD spwin32_getppid(void)
+{
+	HANDLE snapshot;
+	PROCESSENTRY32 entry;
+	DWORD myid = GetCurrentProcessId(), parentid = 0;
+	int found = FALSE;
+
+	snapshot = CreateToolhelp32Snapshot( TH32CS_SNAPPROCESS, 0 );
+	if (snapshot == INVALID_HANDLE_VALUE) {
+		sp_syslog( LOG_ERR, "couldn't take process snapshot in getppid()" );
+		return parentid;
+    }
+
+	entry.dwSize = sizeof(PROCESSENTRY32);
+	if (!Process32First(snapshot, &entry)) {
+		CloseHandle(snapshot);
+		sp_syslog( LOG_ERR, "Process32First failed in getppid()" );
+		return parentid;
+    }
+
+	do {
+		if (entry.th32ProcessID == myid) {
+			parentid = entry.th32ParentProcessID;
+			found = TRUE;
+			break;
+		}
+	} while (Process32Next(snapshot, &entry));
+
+	CloseHandle(snapshot);
+
+	if (!found) {
+		sp_syslog( LOG_ERR, "couldn't find the current process entry in getppid()" );
+	}
+
+	return parentid;
+}
+
+const char * spwin32_strerror( DWORD lastError, char * errmsg, size_t len )
+{
+	if (!FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, lastError, 0,
+			errmsg, len - 1, NULL)) {
+		/* if we fail, call ourself to find out why and return that error */
+		return spwin32_strerror( GetLastError(), errmsg, len );  
+	}
+
+	return errmsg;
+}
+
+int spwin32_getexefile( DWORD pid, char * path, int size )
+{
+	HANDLE snapshot;
+	MODULEENTRY32 entry;
+
+	snapshot = CreateToolhelp32Snapshot( TH32CS_SNAPMODULE, pid );
+	if (snapshot == INVALID_HANDLE_VALUE) {
+		sp_syslog( LOG_ERR, "couldn't take process snapshot in getexefile()" );
+		return -1;
+    }
+
+	entry.dwSize = sizeof(MODULEENTRY32);
+	if (!Module32First(snapshot, &entry)) {
+		CloseHandle(snapshot);
+		char errmsg[ 256 ] = { 0 };
+		sp_syslog( LOG_ERR, "Module32First failed in getexefile(), errno %d, %s",
+			GetLastError(), spwin32_strerror( GetLastError(), errmsg, sizeof( errmsg ) ) );
+		return -1;
+    }
+
+	::strncpy( path, entry.szExePath, size );
+	path[ size - 1 ] = '\0';
+
+	CloseHandle(snapshot);
+
+	return 0;
+}
+
+void spwin32_pause_console()
+{
+	DWORD ppid = spwin32_getppid();
+	if( ppid > 0 ) {
+		char filePath[ 256 ] = { 0 };
+		spwin32_getexefile( ppid, filePath, sizeof( filePath ) );
+
+		char * pos = strrchr( filePath, '\\' );
+		if( NULL == pos ) pos = filePath;
+
+		if( 0 == stricmp( pos + 1, "msdev.exe" )
+				|| 0 == strstr( pos + 1, "explorer.exe" ) )
+		{
+			printf( "\npress any key to exit ...\n" );
+			getchar();
+		}
+	}
 }

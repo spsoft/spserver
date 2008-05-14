@@ -21,6 +21,7 @@ class SP_Response;
 typedef struct tagSP_Sid SP_Sid_t;
 
 typedef struct tagSP_IocpMsgQueue SP_IocpMsgQueue_t;
+typedef struct min_heap min_heap;
 
 class SP_IocpEventArg {
 public:
@@ -121,8 +122,6 @@ public:
 	static int isSystemSid( SP_Sid_t * sid );
 
 	static void enqueue( SP_IocpEventArg * eventArg, SP_Response * response );
-
-	static void getErrMsg( DWORD lastError, char * errmsg, size_t len );
 
 private:
 	SP_IocpEventHelper();
