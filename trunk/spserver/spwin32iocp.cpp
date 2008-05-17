@@ -17,102 +17,6 @@
 #include "spioutils.hpp"
 #include "spmsgblock.hpp"
 
-typedef struct tagSP_IocpMsgQueue {
-	CRITICAL_SECTION mMutex;
-	SP_BlockingQueue * mQueue;
-} SP_IocpMsgQueue_t;
-
-SP_IocpEventArg :: SP_IocpEventArg( int timeout )
-{
-	mInputResultQueue = new SP_BlockingQueue();
-	mOutputResultQueue = new SP_BlockingQueue();
-
-	mResponseQueue = (SP_IocpMsgQueue_t*)malloc( sizeof( SP_IocpMsgQueue_t ) );
-	InitializeCriticalSection( &( mResponseQueue->mMutex ) );
-	mResponseQueue->mQueue = new SP_BlockingQueue();
-
-	mSessionManager = new SP_SessionManager();
-
-	mTimeout = timeout;
-
-	mCompletionPort = CreateIoCompletionPort( INVALID_HANDLE_VALUE, NULL, 0, 0 );
-	if( NULL == mCompletionPort ) {
-		sp_syslog( LOG_ERR, "CreateIoCompletionPort failed, errno %d", WSAGetLastError() );
-	}
-
-	mDisconnectExFunc = NULL;
-}
-
-SP_IocpEventArg :: ~SP_IocpEventArg()
-{
-	if( NULL != mInputResultQueue ) delete mInputResultQueue;
-	mInputResultQueue = NULL;
-
-	if( NULL != mOutputResultQueue ) delete mOutputResultQueue;
-	mOutputResultQueue = NULL;
-
-	if( NULL != mResponseQueue ) {
-		DeleteCriticalSection( &( mResponseQueue->mMutex ) );
-		delete mResponseQueue->mQueue;
-		free( mResponseQueue );
-		mResponseQueue = NULL;
-	}
-}
-
-HANDLE SP_IocpEventArg :: getCompletionPort()
-{
-	return mCompletionPort;
-}
-
-SP_BlockingQueue * SP_IocpEventArg :: getInputResultQueue()
-{
-	return mInputResultQueue;
-}
-	
-SP_BlockingQueue * SP_IocpEventArg :: getOutputResultQueue()
-{
-	return mOutputResultQueue;
-}
-	
-SP_IocpMsgQueue_t * SP_IocpEventArg :: getResponseQueue()
-{
-	return mResponseQueue;
-}
-
-SP_SessionManager * SP_IocpEventArg :: getSessionManager()
-{
-	return mSessionManager;
-}
-
-int SP_IocpEventArg :: getTimeout()
-{
-	return mTimeout;
-}
-
-int SP_IocpEventArg :: loadDisconnectEx( SOCKET fd )
-{
-	LPFN_DISCONNECTEX fnDisConnectEx = NULL;
-	GUID guidDisConnectEx = WSAID_DISCONNECTEX;
-	DWORD dwByte;
-	::WSAIoctl( fd, SIO_GET_EXTENSION_FUNCTION_POINTER,
-			&guidDisConnectEx, sizeof(guidDisConnectEx),
-			&fnDisConnectEx, sizeof(fnDisConnectEx),
-			&dwByte, NULL, NULL); 
-
-	mDisconnectExFunc = fnDisConnectEx;
-
-	return NULL != mDisconnectExFunc ? 0 : -1;
-}
-
-BOOL SP_IocpEventArg :: disconnectEx( SOCKET fd )
-{
-	LPFN_DISCONNECTEX fnDisConnectEx = (LPFN_DISCONNECTEX)mDisconnectExFunc;
-	if( NULL != fnDisConnectEx ) return fnDisConnectEx( fd, NULL, 0, 0 );
-	return FALSE;
-}
-
-//===================================================================
-
 BOOL SP_IocpEventCallback :: addSession( SP_IocpEventArg * eventArg, HANDLE client, SP_Session * session )
 {
 	BOOL ret = TRUE;
@@ -130,9 +34,6 @@ BOOL SP_IocpEventCallback :: addSession( SP_IocpEventArg * eventArg, HANDLE clie
 
 	if( ret ) {
 		iocpSession->mHandle = client;
-		memset( &( iocpSession->mSendEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
-		iocpSession->mSendEvent.mType = SP_IocpEvent_t::eEventSend;
-
 		iocpSession->mSession = session;
 		iocpSession->mEventArg = eventArg;
 		session->setArg( iocpSession );
@@ -177,7 +78,16 @@ BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 			}
 		}
 
-		iocpSession->mSession->setReading( 1 );
+		if( ret ) {
+			iocpSession->mSession->setReading( 1 );
+
+			SP_IocpEventArg * eventArg = iocpSession->mEventArg;
+
+			SP_IocpEvent_t * recvEvent = &( iocpSession->mRecvEvent );
+			sp_gettimeofday( &( recvEvent->mTimeout ), NULL );
+			recvEvent->mTimeout.tv_sec += eventArg->getTimeout();
+			eventArg->getEventHeap()->push( recvEvent );
+		}
 	}
 
 	return ret;
@@ -195,6 +105,7 @@ BOOL SP_IocpEventCallback :: addSend( SP_Session * session )
 			iocpSession->mSendEvent.mWsaBuf[0].buf = (char*)msg->getMsg()->getBuffer();
 			iocpSession->mSendEvent.mWsaBuf[0].len = msg->getMsg()->getSize();
 	
+			iocpSession->mSendEvent.mType = SP_IocpEvent_t::eEventSend;
 			memset( &( iocpSession->mSendEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
 		
 			DWORD sendBytes;
@@ -207,7 +118,16 @@ BOOL SP_IocpEventCallback :: addSend( SP_Session * session )
 				}
 			}
 
-			session->setWriting( 1 );
+			if( ret ) {
+				iocpSession->mSession->setWriting( 1 );
+
+				SP_IocpEventArg * eventArg = iocpSession->mEventArg;
+
+				SP_IocpEvent_t * sendEvent = &( iocpSession->mSendEvent );
+				sp_gettimeofday( &( sendEvent->mTimeout ), NULL );
+				sendEvent->mTimeout.tv_sec += eventArg->getTimeout();
+				eventArg->getEventHeap()->push( sendEvent );
+			}
 		}
 	}
 
@@ -220,6 +140,8 @@ BOOL SP_IocpEventCallback :: onRecv( SP_IocpSession_t * iocpSession, int bytesTr
 
 	SP_Session * session = iocpSession->mSession;
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
+
+	eventArg->getEventHeap()->erase( recvEvent );
 
 	session->setReading( 0 );
 
@@ -322,6 +244,8 @@ BOOL SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession, int bytesTr
 
 	SP_Sid_t sid = session->getSid();
 
+	eventArg->getEventHeap()->erase( sendEvent );
+
 	session->setWriting( 0 );
 
 	if( 0 == bytesTransferred ) {
@@ -386,7 +310,24 @@ BOOL SP_IocpEventCallback :: onAccept( SP_IocpAcceptArg_t * acceptArg )
 
 	if( addSession( eventArg, acceptArg->mClientSocket, session ) ) {
 		eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
-		SP_IocpEventHelper::doStart( session );
+
+		if( eventArg->getSessionManager()->getCount() > acceptArg->mMaxConnections
+				|| eventArg->getInputResultQueue()->getLength() >= acceptArg->mReqQueueSize ) {
+
+			sp_syslog( LOG_WARNING, "System busy, session.count %d [%d], queue.length %d [%d]",
+				eventArg->getSessionManager()->getCount(), acceptArg->mMaxConnections,
+				eventArg->getInputResultQueue()->getLength(), acceptArg->mReqQueueSize );
+
+			SP_Message * msg = new SP_Message();
+			msg->getMsg()->append( acceptArg->mRefusedMsg );
+			msg->getMsg()->append( "\r\n" );
+			session->getOutList()->append( msg );
+			session->setStatus( SP_Session::eExit );
+
+			addSend( session );
+		} else {
+			SP_IocpEventHelper::doStart( session );
+		}
 	} else {
 		delete session;
 	}
@@ -465,15 +406,50 @@ void SP_IocpEventCallback :: onResponse( void * queueData, void * arg )
 	delete response;
 }
 
+void SP_IocpEventCallback :: onTimeout( SP_IocpEventArg * eventArg )
+{
+	SP_IocpEventHeap * eventHeap = eventArg->getEventHeap();
+
+	if( NULL == eventHeap->top() ) return;
+	
+	struct timeval curr;
+	sp_gettimeofday( &curr, NULL );
+
+	for( ; NULL != eventHeap->top(); ) {
+		SP_IocpEvent_t * event = eventHeap->top();
+		struct timeval * first = &( event->mTimeout );
+
+		if( ( curr.tv_sec == first->tv_sec && curr.tv_usec >= first->tv_usec )
+				||( curr.tv_sec > first->tv_sec ) ) {
+			event = eventHeap->pop();
+
+			SP_IocpSession_t * iocpSession = NULL;
+
+			if( SP_IocpEvent_t::eEventRecv == event->mType ) {
+				iocpSession = CONTAINING_RECORD( event, SP_IocpSession_t, mRecvEvent );
+			} else if( SP_IocpEvent_t::eEventSend == event->mType ) {
+				iocpSession = CONTAINING_RECORD( event, SP_IocpSession_t, mSendEvent );
+			}
+
+			assert( NULL != iocpSession );
+
+			SP_IocpEventHelper::doTimeout( iocpSession->mSession );
+		} else {
+			break;
+		}
+	}
+}
+
 BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAcceptArg_t * acceptArg )
 {
 	DWORD bytesTransferred = 0;
 	DWORD completionKey = 0;
 	OVERLAPPED * overlapped = NULL;
 	HANDLE completionPort = eventArg->getCompletionPort();
+	DWORD timeout = SP_IocpEventHelper::timeoutNext( eventArg->getEventHeap() );
 
 	BOOL isSuccess = GetQueuedCompletionStatus( completionPort, &bytesTransferred,
-			&completionKey, &overlapped, INFINITE );
+			&completionKey, &overlapped, timeout );
 	DWORD lastError = WSAGetLastError();
 
 	SP_IocpSession_t * iocpSession = NULL;
@@ -510,6 +486,7 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 		} else {
 			if( lastError == WAIT_TIMEOUT ) {
 				// time-out while waiting for completed I/O request
+				onTimeout( eventArg );
 			} else {
 				// bad call to GQCS, lastError contains the reason for the bad call
 			}
@@ -551,6 +528,9 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 
 		SP_IocpEvent_t * iocpEvent = 
 				CONTAINING_RECORD( overlapped, SP_IocpEvent_t, mOverlapped );
+
+		eventArg->getEventHeap()->erase( iocpEvent );
+
 		if( SP_IocpEvent_t::eEventRecv == iocpEvent->mType ) {
 			if( ! onRecv( iocpSession, bytesTransferred ) ) {
 				SP_IocpEventHelper::doError( iocpSession->mSession );
@@ -574,6 +554,25 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 int SP_IocpEventHelper :: isSystemSid( SP_Sid_t * sid )
 {
 	return sid->mKey == SP_Sid_t::eTimerKey && sid->mSeq == SP_Sid_t::eTimerSeq;
+}
+
+DWORD SP_IocpEventHelper :: timeoutNext( SP_IocpEventHeap * eventHeap )
+{
+	SP_IocpEvent_t * event = eventHeap->top();
+
+	if( NULL == event ) return INFINITE;
+
+	struct timeval curr;
+	sp_gettimeofday( &curr, NULL );
+
+	struct timeval * first = &( event->mTimeout );
+
+	DWORD ret = ( first->tv_sec - curr.tv_sec ) * 1000
+		+ ( first->tv_usec - curr.tv_usec ) / 1000;
+
+	if( ret < 0 ) ret = 1;
+
+	return ret;
 }
 
 void SP_IocpEventHelper :: doWork( SP_Session * session )
@@ -624,6 +623,9 @@ void SP_IocpEventHelper :: doClose( SP_Session * session )
 
 		// remove session from SessionManager, the other threads will ignore this session
 		eventArg->getSessionManager()->remove( sid.mKey );
+
+		eventArg->getEventHeap()->erase( &( iocpSession->mRecvEvent ) );
+		eventArg->getEventHeap()->erase( &( iocpSession->mSendEvent ) );
 
 		eventArg->getInputResultQueue()->push( new SP_SimpleTask( close, session, 1 ) );
 	} else {
@@ -687,6 +689,9 @@ void SP_IocpEventHelper :: doError( SP_Session * session )
 	// remove session from SessionManager, so the other threads will ignore this session
 	eventArg->getSessionManager()->remove( sid.mKey );
 
+	eventArg->getEventHeap()->erase( &( iocpSession->mRecvEvent ) );
+	eventArg->getEventHeap()->erase( &( iocpSession->mSendEvent ) );
+
 	eventArg->getInputResultQueue()->push( new SP_SimpleTask( error, session, 1 ) );
 }
 
@@ -739,6 +744,9 @@ void SP_IocpEventHelper :: doTimeout( SP_Session * session )
 
 	// remove session from SessionManager, the other threads will ignore this session
 	eventArg->getSessionManager()->remove( sid.mKey );
+
+	eventArg->getEventHeap()->erase( &( iocpSession->mRecvEvent ) );
+	eventArg->getEventHeap()->erase( &( iocpSession->mSendEvent ) );
 
 	eventArg->getInputResultQueue()->push( new SP_SimpleTask( timeout, session, 1 ) );
 }

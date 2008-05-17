@@ -121,6 +121,10 @@ SOURCE=..\spserver\spiochannel.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\spserver\spiocpevent.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\spserver\spiocpserver.cpp
 # End Source File
 # Begin Source File
@@ -210,6 +214,10 @@ SOURCE=..\spserver\sphttpmsg.hpp
 # Begin Source File
 
 SOURCE=..\spserver\spiochannel.hpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\spserver\spiocpevent.hpp
 # End Source File
 # Begin Source File
 
