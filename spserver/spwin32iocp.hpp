@@ -11,50 +11,12 @@
 #include <windows.h>
 #include <stdio.h>
 
-class SP_BlockingQueue;
-class SP_SessionManager;
+#include "spiocpevent.hpp"
+
 class SP_HandlerFactory;
 class SP_Session;
 class SP_Message;
 class SP_Response;
-
-typedef struct tagSP_Sid SP_Sid_t;
-
-typedef struct tagSP_IocpMsgQueue SP_IocpMsgQueue_t;
-typedef struct min_heap min_heap;
-
-class SP_IocpEventArg {
-public:
-	SP_IocpEventArg( int timeout );
-	~SP_IocpEventArg();
-
-	HANDLE getCompletionPort();
-	SP_BlockingQueue * getInputResultQueue();
-	SP_BlockingQueue * getOutputResultQueue();
-	SP_IocpMsgQueue_t * getResponseQueue();
-
-	SP_SessionManager * getSessionManager();
-
-	int loadDisconnectEx( SOCKET fd );
-
-	BOOL disconnectEx( SOCKET fd );
-
-	void setTimeout( int timeout );
-	int getTimeout();
-
-private:
-	SP_BlockingQueue * mInputResultQueue;
-	SP_BlockingQueue * mOutputResultQueue;
-	SP_IocpMsgQueue_t * mResponseQueue;
-
-	SP_SessionManager * mSessionManager;
-
-	void * mDisconnectExFunc;
-
-	int mTimeout;
-
-	HANDLE mCompletionPort;
-};
 
 typedef struct tagSP_IocpAcceptArg {
 	SP_HandlerFactory * mHandlerFactory;
@@ -75,7 +37,18 @@ typedef struct tagSP_IocpAcceptArg {
 	HANDLE mAcceptEvent;
 } SP_IocpAcceptArg_t;
 
-typedef struct tagSP_IocpSession SP_IocpSession_t;
+typedef struct tagSP_IocpSession {
+	SP_Session * mSession;
+	SP_IocpEventArg * mEventArg;
+
+	HANDLE mHandle;
+
+	SP_IocpEvent_t mRecvEvent;
+	SP_IocpEvent_t mSendEvent;
+	OVERLAPPED mFreeEvent;
+
+	char mBuffer[ 4096 ];
+} SP_IocpSession_t;
 
 class SP_IocpEventCallback {
 public:
@@ -90,6 +63,8 @@ public:
 	static BOOL onSend( SP_IocpSession_t * iocpSession, int bytesTransferred );
 	static BOOL onAccept( SP_IocpAcceptArg_t * acceptArg );
 	static void onResponse( void * queueData, void * arg );
+
+	static void onTimeout( SP_IocpEventArg * eventArg );
 	
 	static BOOL eventLoop( SP_IocpEventArg * eventArg, SP_IocpAcceptArg_t * acceptArg );
 
@@ -99,6 +74,8 @@ private:
 	SP_IocpEventCallback();
 	~SP_IocpEventCallback();
 };
+
+typedef struct tagSP_Sid SP_Sid_t;
 
 class SP_IocpEventHelper {
 public:
@@ -123,31 +100,11 @@ public:
 
 	static void enqueue( SP_IocpEventArg * eventArg, SP_Response * response );
 
+	static DWORD timeoutNext( SP_IocpEventHeap * eventHeap );
+
 private:
 	SP_IocpEventHelper();
 	~SP_IocpEventHelper();
 };
-
-typedef struct tagSP_IocpEvent {
-	enum { SP_IOCP_MAX_IOV = 8 };
-	enum { eEventRecv, eEventSend };
-
-	OVERLAPPED mOverlapped;
-	WSABUF mWsaBuf[ SP_IOCP_MAX_IOV ];
-	int mType;
-} SP_IocpEvent_t;
-
-typedef struct tagSP_IocpSession {
-	SP_Session * mSession;
-	SP_IocpEventArg * mEventArg;
-
-	HANDLE mHandle;
-
-	SP_IocpEvent_t mRecvEvent;
-	SP_IocpEvent_t mSendEvent;
-	OVERLAPPED mFreeEvent;
-
-	char mBuffer[ 4096 ];
-} SP_IocpSession_t;
 
 #endif

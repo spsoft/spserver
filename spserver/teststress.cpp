@@ -168,13 +168,17 @@ int main( int argc, char * argv[] )
 		client->mFd = socket( AF_INET, SOCK_STREAM, 0 );
 		if( client->mFd < 0 ) {
 			fprintf(stderr, "socket failed, errno %d, %s\n", errno, strerror( errno ) );
-			getchar();
+#ifdef WIN32
+			spwin32_pause_console();
+#endif
 			return -1;
 		}
 
 		if( connect( client->mFd, (struct sockaddr *)&sin, sizeof(sin) ) != 0) {
 			fprintf(stderr, "connect failed, errno %d, %s\n", errno, strerror( errno ) );
-			getchar();
+#ifdef WIN32
+			spwin32_pause_console();
+#endif
 			return -1;
 		}
 

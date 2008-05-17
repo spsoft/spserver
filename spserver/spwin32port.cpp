@@ -245,7 +245,7 @@ void spwin32_pause_console()
 		if( NULL == pos ) pos = filePath;
 
 		if( 0 == stricmp( pos + 1, "msdev.exe" )
-				|| 0 == strstr( pos + 1, "explorer.exe" ) )
+				|| 0 == stricmp( pos + 1, "explorer.exe" ) )
 		{
 			printf( "\npress any key to exit ...\n" );
 			getchar();
