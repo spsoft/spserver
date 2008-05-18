@@ -104,7 +104,7 @@ int SP_ThreadPool :: dispatch( DispatchFunc_t dispatchFunc, void *arg )
 
 	sp_thread_mutex_lock( &mMainMutex );
 
-	if( mIndex <= 0 && mTotal >= mMaxThreads ) {
+	for( ; mIndex <= 0 && mTotal >= mMaxThreads; ) {
 		sp_thread_cond_wait( &mIdleCond, &mMainMutex );
 	}
 
