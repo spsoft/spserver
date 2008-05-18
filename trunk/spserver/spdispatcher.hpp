@@ -7,6 +7,7 @@
 #define __spdispatcher_hpp__
 
 #include "spporting.hpp"
+#include "spthread.hpp"
 
 class SP_CompletionHandler;
 class SP_Handler;
@@ -65,7 +66,7 @@ private:
 
 	int start();
 
-	static void * eventLoop( void * arg );
+	static sp_thread_result_t SP_THREAD_CALL eventLoop( void * arg );
 
 	static void onPush( void * queueData, void * arg );
 

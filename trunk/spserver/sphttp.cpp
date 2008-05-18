@@ -6,7 +6,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
-#include <pthread.h>
+
+#include "spthread.hpp"
 
 #include "sphttp.hpp"
 #include "sphttpmsg.hpp"

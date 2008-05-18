@@ -153,43 +153,43 @@ int SP_CircleQueue :: getLength()
 SP_BlockingQueue :: SP_BlockingQueue()
 {
 	mQueue = new SP_CircleQueue();
-	pthread_mutex_init( &mMutex, NULL );
-	pthread_cond_init( &mCond, NULL );
+	sp_thread_mutex_init( &mMutex, NULL );
+	sp_thread_cond_init( &mCond, NULL );
 }
 
 SP_BlockingQueue :: ~SP_BlockingQueue()
 {
 	delete mQueue;
-	pthread_mutex_destroy( &mMutex );
-	pthread_cond_destroy( &mCond );
+	sp_thread_mutex_destroy( &mMutex );
+	sp_thread_cond_destroy( &mCond );
 }
 
 void SP_BlockingQueue :: push( void * item )
 {
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	mQueue->push( item );
 
 	if( mQueue->getLength() == 1 ) {
-		pthread_cond_signal( &mCond );
+		sp_thread_cond_signal( &mCond );
 	}
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 }
 
 void * SP_BlockingQueue :: pop()
 {
 	void * ret = NULL;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	if( mQueue->getLength() == 0 ) {
-		pthread_cond_wait( &mCond, &mMutex );
+		sp_thread_cond_wait( &mCond, &mMutex );
 	}
 
 	ret = mQueue->pop();
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	return ret;
 }
@@ -198,11 +198,11 @@ void * SP_BlockingQueue :: top()
 {
 	void * ret = NULL;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	ret = mQueue->top();
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	return ret;
 }
@@ -211,11 +211,11 @@ int SP_BlockingQueue :: getLength()
 {
 	int len = 0;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	len = mQueue->getLength();
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	return len;
 }

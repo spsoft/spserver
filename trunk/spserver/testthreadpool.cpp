@@ -5,9 +5,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <errno.h>
 #include <stdarg.h>
+
+#include "spthread.hpp"
 
 #include "spporting.hpp"
 
@@ -20,7 +21,7 @@ void threadFunc( void *arg )
 	int seconds = (int) arg;
 
 	fprintf( stdout, "  in threadFunc %d\n", seconds );
-	fprintf( stdout, "  thread#%ld\n", pthread_self() );
+	fprintf( stdout, "  thread#%ld\n", sp_thread_self() );
 	sleep( seconds );
 	fprintf( stdout, "  done threadFunc %d\n", seconds);
 }

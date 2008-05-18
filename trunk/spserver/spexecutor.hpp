@@ -7,7 +7,7 @@
 #ifndef __spexecutor_hpp__
 #define __spexecutor_hpp__
 
-#include <pthread.h>
+#include "spthread.hpp"
 
 class SP_ThreadPool;
 class SP_BlockingQueue;
@@ -47,15 +47,15 @@ public:
 private:
 	static void msgQueueCallback( void * queueData, void * arg );
 	static void worker( void * arg );
-	static void * eventLoop( void * arg );
+	static sp_thread_result_t SP_THREAD_CALL eventLoop( void * arg );
 
 	SP_ThreadPool * mThreadPool;
 	SP_BlockingQueue * mQueue;
 
 	int mIsShutdown;
 
-	pthread_mutex_t mMutex;
-	pthread_cond_t mCond;
+	sp_thread_mutex_t mMutex;
+	sp_thread_cond_t mCond;
 };
 
 #endif

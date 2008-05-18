@@ -41,7 +41,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "Release"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\..\libevent\\" /I "..\..\libevent\WIN32-Code" /I "..\..\pthread\include\\" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\..\libevent\\" /I "..\..\libevent\WIN32-Code" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /YX /FD /c
 # ADD BASE RSC /l 0x804 /d "NDEBUG"
 # ADD RSC /l 0x804 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -64,7 +64,8 @@ LIB32=link.exe -lib
 # PROP Intermediate_Dir "Debug"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_MBCS" /D "_LIB" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "..\..\libevent\\" /I "..\..\libevent\WIN32-Code" /I "..\..\pthread\include\\" /D "WIN32" /D "_DEBUG" /D "_MBCS" /D "_LIB" /FR /YX /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Ob0 /I "..\..\libevent\\" /I "..\..\libevent\WIN32-Code" /D "WIN32" /D "_DEBUG" /D "_MBCS" /D "_LIB" /FR /YX /FD /GZ /c
+# SUBTRACT CPP /O<none>
 # ADD BASE RSC /l 0x804 /d "_DEBUG"
 # ADD RSC /l 0x804 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -158,6 +159,10 @@ SOURCE=..\spserver\spserver.cpp
 # Begin Source File
 
 SOURCE=..\spserver\spsession.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\spserver\spthread.cpp
 # End Source File
 # Begin Source File
 
@@ -258,6 +263,10 @@ SOURCE=..\spserver\spserver.hpp
 # Begin Source File
 
 SOURCE=..\spserver\spsession.hpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\spserver\spthread.hpp
 # End Source File
 # Begin Source File
 

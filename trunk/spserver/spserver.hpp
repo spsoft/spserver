@@ -8,6 +8,7 @@
 #define __spserver_hpp__
 
 #include <sys/types.h>
+#include "spthread.hpp"
 
 class SP_HandlerFactory;
 class SP_Session;
@@ -48,7 +49,7 @@ private:
 	int mReqQueueSize;
 	char * mRefusedMsg;
 
-	static void * eventLoop( void * arg );
+	static sp_thread_result_t SP_THREAD_CALL eventLoop( void * arg );
 
 	int start();
 
