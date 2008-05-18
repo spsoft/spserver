@@ -13,7 +13,6 @@
 #define _EVENT_MSGQUEUE_H_
 
 #include <event.h>
-#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {

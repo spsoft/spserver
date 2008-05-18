@@ -6,7 +6,7 @@
 #ifndef __sputils_hpp__
 #define __sputils_hpp__
 
-#include <pthread.h>
+#include "spthread.hpp"
 
 class SP_ArrayList {
 public:
@@ -66,8 +66,8 @@ public:
 
 private:
 	SP_CircleQueue * mQueue;
-	pthread_mutex_t mMutex;
-	pthread_cond_t mCond;
+	sp_thread_mutex_t mMutex;
+	sp_thread_cond_t mCond;
 };
 
 #endif

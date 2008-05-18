@@ -48,7 +48,7 @@ SP_LFServer :: SP_LFServer( const char * bindIP, int port, SP_HandlerFactory * h
 
 	mCompletionHandler = NULL;
 
-	pthread_mutex_init( &mMutex, NULL );
+	sp_thread_mutex_init( &mMutex, NULL );
 }
 
 SP_LFServer :: ~SP_LFServer()
@@ -82,7 +82,7 @@ SP_LFServer :: ~SP_LFServer()
 	delete mEventArg;
 	mEventArg = NULL;
 
-	pthread_mutex_destroy( &mMutex );
+	sp_thread_mutex_destroy( &mMutex );
 }
 
 void SP_LFServer :: setTimeout( int timeout )
@@ -145,7 +145,7 @@ void SP_LFServer :: handleOneEvent()
 	SP_Task * task = NULL;
 	SP_Message * msg = NULL;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	for( ; 0 == mIsShutdown && NULL == task && NULL == msg; ) {
 		if( mEventArg->getInputResultQueue()->getLength() > 0 ) {
@@ -159,7 +159,7 @@ void SP_LFServer :: handleOneEvent()
 		}
 	}
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	if( NULL != task ) task->run();
 

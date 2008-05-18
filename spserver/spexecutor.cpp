@@ -51,17 +51,17 @@ SP_Executor :: SP_Executor( int maxThreads, const char * tag )
 
 	mIsShutdown = 0;
 
-	pthread_mutex_init( &mMutex, NULL );
-	pthread_cond_init( &mCond, NULL );
+	sp_thread_mutex_init( &mMutex, NULL );
+	sp_thread_cond_init( &mCond, NULL );
 
-	pthread_attr_t attr;
-	pthread_attr_init( &attr );
-	assert( pthread_attr_setstacksize( &attr, 1024 * 1024 ) == 0 );
-	pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
+	sp_thread_attr_t attr;
+	sp_thread_attr_init( &attr );
+	assert( sp_thread_attr_setstacksize( &attr, 1024 * 1024 ) == 0 );
+	sp_thread_attr_setdetachstate( &attr, SP_THREAD_CREATE_DETACHED );
 
-	pthread_t thread;
-	int ret = pthread_create( &thread, &attr, reinterpret_cast<void*(*)(void*)>(eventLoop), this );
-	pthread_attr_destroy( &attr );
+	sp_thread_t thread;
+	int ret = sp_thread_create( &thread, &attr, eventLoop, this );
+	sp_thread_attr_destroy( &attr );
 	if( 0 == ret ) {
 		sp_syslog( LOG_NOTICE, "[ex@%s] Thread #%ld has been created for executor", tag, thread );
 	} else {
@@ -74,13 +74,13 @@ SP_Executor :: ~SP_Executor()
 	shutdown();
 
 	while( 2 != mIsShutdown ) {
-		pthread_mutex_lock( &mMutex );
-		pthread_cond_wait( &mCond, &mMutex );
-		pthread_mutex_unlock( &mMutex );
+		sp_thread_mutex_lock( &mMutex );
+		sp_thread_cond_wait( &mCond, &mMutex );
+		sp_thread_mutex_unlock( &mMutex );
 	}
 
-	pthread_mutex_destroy( &mMutex );
-	pthread_cond_destroy( &mCond);
+	sp_thread_mutex_destroy( &mMutex );
+	sp_thread_cond_destroy( &mCond);
 
 	delete mThreadPool;
 	mThreadPool = NULL;
@@ -91,17 +91,17 @@ SP_Executor :: ~SP_Executor()
 
 void SP_Executor :: shutdown()
 {
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 	if( 0 == mIsShutdown ) {
 		mIsShutdown = 1;
 
 		// signal the event loop to wake up
 		execute( worker, NULL );
 	}
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 }
 
-void * SP_Executor :: eventLoop( void * arg )
+sp_thread_result_t SP_THREAD_CALL  SP_Executor :: eventLoop( void * arg )
 {
 	SP_Executor * executor = ( SP_Executor * )arg;
 
@@ -117,12 +117,12 @@ void * SP_Executor :: eventLoop( void * arg )
 		}
 	}
 
-	pthread_mutex_lock( &executor->mMutex );
+	sp_thread_mutex_lock( &executor->mMutex );
 	executor->mIsShutdown = 2;
-	pthread_cond_signal( &executor->mCond );
-	pthread_mutex_unlock( &executor->mMutex );
+	sp_thread_cond_signal( &executor->mCond );
+	sp_thread_mutex_unlock( &executor->mMutex );
 
-	return NULL;
+	return 0;
 }
 
 void SP_Executor :: worker( void * arg )

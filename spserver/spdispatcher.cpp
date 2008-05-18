@@ -6,12 +6,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
 #include <assert.h>
 #include <errno.h>
 #include <signal.h>
 
 #include "spporting.hpp"
+#include "spthread.hpp"
 
 #include "spdispatcher.hpp"
 
@@ -87,14 +87,14 @@ int SP_Dispatcher :: dispatch()
 {
 	int ret = -1;
 
-	pthread_attr_t attr;
-	pthread_attr_init( &attr );
-	assert( pthread_attr_setstacksize( &attr, 1024 * 1024 ) == 0 );
-	pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
+	sp_thread_attr_t attr;
+	sp_thread_attr_init( &attr );
+	assert( sp_thread_attr_setstacksize( &attr, 1024 * 1024 ) == 0 );
+	sp_thread_attr_setdetachstate( &attr, SP_THREAD_CREATE_DETACHED );
 
-	pthread_t thread;
-	ret = pthread_create( &thread, &attr, reinterpret_cast<void*(*)(void*)>(eventLoop), this );
-	pthread_attr_destroy( &attr );
+	sp_thread_t thread;
+	ret = sp_thread_create( &thread, &attr, eventLoop, this );
+	sp_thread_attr_destroy( &attr );
 	if( 0 == ret ) {
 		sp_syslog( LOG_NOTICE, "Thread #%ld has been created for dispatcher", thread );
 	} else {
@@ -106,7 +106,7 @@ int SP_Dispatcher :: dispatch()
 	return ret;
 }
 
-void * SP_Dispatcher :: eventLoop( void * arg )
+sp_thread_result_t SP_THREAD_CALL SP_Dispatcher :: eventLoop( void * arg )
 {
 	SP_Dispatcher * dispatcher = (SP_Dispatcher*)arg;
 
@@ -116,7 +116,7 @@ void * SP_Dispatcher :: eventLoop( void * arg )
 
 	dispatcher->mIsRunning = 0;
 
-	return NULL;
+	return 0;
 }
 
 void SP_Dispatcher :: outputCompleted( void * arg )

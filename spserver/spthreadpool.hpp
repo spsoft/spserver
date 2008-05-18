@@ -7,7 +7,7 @@
 #ifndef __spthreadpool_hpp__
 #define __spthreadpool_hpp__
 
-#include <pthread.h>
+#include "spthread.hpp"
 
 typedef struct tagSP_Thread SP_Thread_t;
 
@@ -31,14 +31,14 @@ private:
 	int mTotal;
 	int mIsShutdown;
 
-	pthread_mutex_t mMainMutex;
-	pthread_cond_t mIdleCond;
-	pthread_cond_t mFullCond;
-	pthread_cond_t mEmptyCond;
+	sp_thread_mutex_t mMainMutex;
+	sp_thread_cond_t mIdleCond;
+	sp_thread_cond_t mFullCond;
+	sp_thread_cond_t mEmptyCond;
 
 	SP_Thread_t ** mThreadList;
 
-	static void * wrapperFunc( void * );
+	static sp_thread_result_t SP_THREAD_CALL wrapperFunc( void * );
 	int saveThread( SP_Thread_t * thread );
 };
 

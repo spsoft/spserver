@@ -6,10 +6,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <signal.h>
 #include <sys/types.h>
 #include <assert.h>
+
+#include "spthread.hpp"
 
 #include "spmsgdecoder.hpp"
 #include "spbuffer.hpp"
@@ -19,6 +20,10 @@
 #include "spresponse.hpp"
 #include "sprequest.hpp"
 #include "spioutils.hpp"
+
+#ifdef WIN32
+#include "spgetopt.h"
+#endif
 
 class SP_OnlineSidList {
 public:
@@ -32,22 +37,22 @@ public:
 
 private:
 	SP_SidList mList;
-	pthread_mutex_t mMutex;
+	sp_thread_mutex_t mMutex;
 };
 
 SP_OnlineSidList :: SP_OnlineSidList()
 {
-	pthread_mutex_init( &mMutex, NULL );
+	sp_thread_mutex_init( &mMutex, NULL );
 }
 
 SP_OnlineSidList :: ~SP_OnlineSidList()
 {
-	pthread_mutex_destroy( &mMutex );
+	sp_thread_mutex_destroy( &mMutex );
 }
 
 void SP_OnlineSidList :: copy( SP_SidList * outList, SP_Sid_t * ignoreSid )
 {
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	for( int i = 0; i < mList.getCount(); i++ ) {
 		if( NULL != ignoreSid ) {
@@ -60,12 +65,12 @@ void SP_OnlineSidList :: copy( SP_SidList * outList, SP_Sid_t * ignoreSid )
 		outList->add( mList.get( i ) );
 	}
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 }
 
 void SP_OnlineSidList :: remove( SP_Sid_t sid )
 {
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	for( int i = 0; i < mList.getCount(); i++ ) {
 		SP_Sid_t theSid = mList.get( i );
@@ -75,27 +80,27 @@ void SP_OnlineSidList :: remove( SP_Sid_t sid )
 		}
 	}
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 }
 
 void SP_OnlineSidList :: add( SP_Sid_t sid )
 {
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	mList.add( sid );
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 }
 
 int SP_OnlineSidList :: getCount()
 {
 	int count = 0;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	count = mList.getCount();
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	return count;
 }
@@ -261,7 +266,6 @@ int main( int argc, char * argv[] )
 {
 	int port = 5555, maxThreads = 10;
 
-#ifndef WIN32
 	extern char *optarg ;
 	int c ;
 
@@ -279,7 +283,6 @@ int main( int argc, char * argv[] )
 				exit( 0 );
 		}
 	}
-#endif
 
 #ifdef LOG_PERROR
 	sp_openlog( "testchat_d", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );

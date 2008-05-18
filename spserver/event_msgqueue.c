@@ -13,6 +13,8 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "spthread.hpp"
+
 #include "spporting.hpp"
 #include "event_msgqueue.h"
 
@@ -34,7 +36,7 @@ struct event_msgqueue {
 
    struct event queue_ev;
 
-   pthread_mutex_t lock;
+   sp_thread_mutex_t lock;
    void (*callback)(void *, void *);
    void *cbarg;
    struct circqueue *queue;
@@ -139,21 +141,21 @@ static void msgqueue_pop(int fd, short flags, void *arg) {
 
    recv(fd, buf, sizeof(buf),0);
 
-   pthread_mutex_lock(&msgq->lock);
+   sp_thread_mutex_lock(&msgq->lock);
    while(!circqueue_is_empty(msgq->queue)) {
       void *qdata;
 
       qdata = circqueue_pop_head(msgq->queue);
 
       if (msgq->unlock_between_callbacks)
-         pthread_mutex_unlock(&msgq->lock);
+         sp_thread_mutex_unlock(&msgq->lock);
 
       msgq->callback(qdata, msgq->cbarg);
 
       if (msgq->unlock_between_callbacks)
-         pthread_mutex_lock(&msgq->lock);
+         sp_thread_mutex_lock(&msgq->lock);
    }
-   pthread_mutex_unlock(&msgq->lock);
+   sp_thread_mutex_unlock(&msgq->lock);
 }
 
 struct event_msgqueue *msgqueue_new(struct event_base *base, unsigned int max_size, void (*callback)(void *, void *), void *cbarg) {
@@ -181,7 +183,7 @@ struct event_msgqueue *msgqueue_new(struct event_base *base, unsigned int max_si
    msgq->queue = cq;
    msgq->callback = callback;
    msgq->cbarg = cbarg;
-   pthread_mutex_init(&msgq->lock, NULL);
+   sp_thread_mutex_init(&msgq->lock, NULL);
    event_set(&msgq->queue_ev, msgq->pop_fd, EV_READ | EV_PERSIST, msgqueue_pop, msgq);
    event_base_set(base, &msgq->queue_ev);
    event_add(&msgq->queue_ev, NULL);
@@ -208,12 +210,12 @@ int msgqueue_push(struct event_msgqueue *msgq, void *msg) {
    const char buf[1] = { 0 };
    int r = 0;
 
-   pthread_mutex_lock(&msgq->lock);
+   sp_thread_mutex_lock(&msgq->lock);
    if ((r = circqueue_push_tail(msgq->queue, msg)) == 0) {
       if (circqueue_get_length(msgq->queue) == 1)
          send(msgq->push_fd, buf, 1,0);
    }
-   pthread_mutex_unlock(&msgq->lock);
+   sp_thread_mutex_unlock(&msgq->lock);
 
    return(r);
 }
@@ -221,9 +223,9 @@ int msgqueue_push(struct event_msgqueue *msgq, void *msg) {
 unsigned int msgqueue_length(struct event_msgqueue *msgq) {
    unsigned int len;
 
-   pthread_mutex_lock(&msgq->lock);
+   sp_thread_mutex_lock(&msgq->lock);
    len = circqueue_get_length(msgq->queue);
-   pthread_mutex_unlock(&msgq->lock);
+   sp_thread_mutex_unlock(&msgq->lock);
 
    return(len);
 }

@@ -6,7 +6,7 @@
 #ifndef __splfserver_hpp__
 #define __splfserver_hpp__
 
-#include <pthread.h>
+#include "spthread.hpp"
 
 class SP_EventArg;
 class SP_ThreadPool;
@@ -56,7 +56,7 @@ private:
 	struct event * mEvAccept;
 	struct event * mEvSigInt, * mEvSigTerm;
 
-	pthread_mutex_t mMutex;
+	sp_thread_mutex_t mMutex;
 
 	void handleOneEvent();
 

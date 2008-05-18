@@ -28,6 +28,7 @@ typedef int socklen_t;
 #define strncasecmp strnicmp
 #define pause()	Sleep((32767L << 16) + 32767)
 #define sleep(x) Sleep(x*1000)
+#define localtime_r(_clock, _result) ( *(_result) = *localtime( (_clock) ), (_result) )
 
 #define sp_close        closesocket
 #define sp_writev       spwin32_writev

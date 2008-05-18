@@ -81,14 +81,14 @@ int SP_IocpServer :: run()
 {
 	int ret = -1;
 
-	pthread_attr_t attr;
-	pthread_attr_init( &attr );
-	assert( pthread_attr_setstacksize( &attr, 1024 * 1024 ) == 0 );
-	pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
+	sp_thread_attr_t attr;
+	sp_thread_attr_init( &attr );
+	assert( sp_thread_attr_setstacksize( &attr, 1024 * 1024 ) == 0 );
+	sp_thread_attr_setdetachstate( &attr, SP_THREAD_CREATE_DETACHED );
 
-	pthread_t thread;
-	ret = pthread_create( &thread, &attr, reinterpret_cast<void*(*)(void*)>(eventLoop), this );
-	pthread_attr_destroy( &attr );
+	sp_thread_t thread;
+	ret = sp_thread_create( &thread, &attr, eventLoop, this );
+	sp_thread_attr_destroy( &attr );
 	if( 0 == ret ) {
 		sp_syslog( LOG_NOTICE, "Thread #%ld has been created to listen on port [%d]", thread, mPort );
 	} else {
@@ -105,7 +105,7 @@ void SP_IocpServer :: runForever()
 	eventLoop( this );
 }
 
-void * SP_IocpServer :: eventLoop( void * arg )
+sp_thread_result_t SP_THREAD_CALL SP_IocpServer :: eventLoop( void * arg )
 {
 	SP_IocpServer * server = (SP_IocpServer*)arg;
 
@@ -134,7 +134,7 @@ void SP_IocpServer :: outputCompleted( void * arg )
 	free( arg );
 }
 
-void * SP_IocpServer :: acceptThread( void * arg )
+sp_thread_result_t SP_THREAD_CALL SP_IocpServer :: acceptThread( void * arg )
 {
 	DWORD recvBytes = 0;
 
@@ -157,7 +157,7 @@ void * SP_IocpServer :: acceptThread( void * arg )
 		ResetEvent( acceptArg->mAcceptEvent );
 	}
 
-	return NULL;
+	return 0;
 }
 
 int SP_IocpServer :: start()
@@ -195,8 +195,8 @@ int SP_IocpServer :: start()
 			return -1;		
 		}
 
-		pthread_t thread;
-		ret = pthread_create( &thread, NULL, reinterpret_cast<void*(*)(void*)>(acceptThread), &acceptArg );
+		sp_thread_t thread;
+		ret = sp_thread_create( &thread, NULL, acceptThread, &acceptArg );
 		if( 0 == ret ) {
 			sp_syslog( LOG_NOTICE, "Thread #%ld has been created to accept socket", thread );
 		} else {
