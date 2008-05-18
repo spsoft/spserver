@@ -46,7 +46,7 @@ SP_IocpServer :: ~SP_IocpServer()
 
 void SP_IocpServer :: setTimeout( int timeout )
 {
-	mTimeout = timeout > 0 ? timeout : mTimeout;
+	mTimeout = timeout;
 }
 
 void SP_IocpServer :: setMaxThreads( int maxThreads )

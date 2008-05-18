@@ -33,6 +33,10 @@ BOOL SP_IocpEventCallback :: addSession( SP_IocpEventArg * eventArg, HANDLE clie
 	memcpy( &completionKey, &sid, sizeof( completionKey ) );
 
 	if( ret ) {
+		memset( iocpSession, 0, sizeof( SP_IocpSession_t ) );
+		iocpSession->mRecvEvent.mHeapIndex = -1;
+		iocpSession->mSendEvent.mHeapIndex = -1;
+
 		iocpSession->mHandle = client;
 		iocpSession->mSession = session;
 		iocpSession->mEventArg = eventArg;
@@ -83,10 +87,12 @@ BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 
 			SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 
-			SP_IocpEvent_t * recvEvent = &( iocpSession->mRecvEvent );
-			sp_gettimeofday( &( recvEvent->mTimeout ), NULL );
-			recvEvent->mTimeout.tv_sec += eventArg->getTimeout();
-			eventArg->getEventHeap()->push( recvEvent );
+			if( eventArg->getTimeout() > 0 ) {
+				SP_IocpEvent_t * recvEvent = &( iocpSession->mRecvEvent );
+				sp_gettimeofday( &( recvEvent->mTimeout ), NULL );
+				recvEvent->mTimeout.tv_sec += eventArg->getTimeout();
+				eventArg->getEventHeap()->push( recvEvent );
+			}
 		}
 	}
 
@@ -123,10 +129,12 @@ BOOL SP_IocpEventCallback :: addSend( SP_Session * session )
 
 				SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 
-				SP_IocpEvent_t * sendEvent = &( iocpSession->mSendEvent );
-				sp_gettimeofday( &( sendEvent->mTimeout ), NULL );
-				sendEvent->mTimeout.tv_sec += eventArg->getTimeout();
-				eventArg->getEventHeap()->push( sendEvent );
+				if( eventArg->getTimeout() > 0 ) {
+					SP_IocpEvent_t * sendEvent = &( iocpSession->mSendEvent );
+					sp_gettimeofday( &( sendEvent->mTimeout ), NULL );
+					sendEvent->mTimeout.tv_sec += eventArg->getTimeout();
+					eventArg->getEventHeap()->push( sendEvent );
+				}
 			}
 		}
 	}
