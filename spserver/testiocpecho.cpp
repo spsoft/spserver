@@ -78,6 +78,9 @@ int main(void)
 	assert( 0 == sp_initsock() );
 
 	SP_IocpServer server( "", port, new SP_EchoHandlerFactory() );
+	server.setTimeout( 0 );
+	server.setMaxThreads( 4 );
+	server.setMaxConnections( 10000 );
 	server.runForever();
 
 	_CrtDumpMemoryLeaks();
