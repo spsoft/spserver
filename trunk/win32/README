@@ -13,11 +13,7 @@
 
 2. Building spserver
 
-Before building spserver, pthreads-win32 and libevent-1.4.3 must been installed.
-
-You can donwload pthreads-win32 from its home page, test with version 2.8.0.
-
-	http://sourceware.org/pthreads-win32/
+Before building spserver, libevent-1.4.3 must been installed.
 
 Directory structure:
 
@@ -28,14 +24,7 @@ Directory structure:
 		|   |       `-- libevent.lib
 		|   |-- event-config.h
 		|   `-- event.h
-		|-- pthread
-		|   |-- include
-		|   |   |-- pthread.h
-		|   |   |-- sched.h
-		|   |   `-- semaphore.h
-		|   `-- lib
-		|       |-- pthreadVC2.dll
-		|       `-- pthreadVC2.lib
+		|
 		`-- spserver
 			|-- spserver
 			|   |-- spserver.cpp
