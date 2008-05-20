@@ -17,7 +17,9 @@
 #include "sprequest.hpp"
 #include "spiochannel.hpp"
 
+#ifndef WIN32
 #include "event.h"
+#endif
 
 //-------------------------------------------------------------------
 
@@ -115,8 +117,13 @@ SP_Session :: SP_Session( SP_Sid_t sid )
 {
 	mSid = sid;
 
+	mReadEvent = NULL;
+	mWriteEvent = NULL;
+
+#ifndef WIN32
 	mReadEvent = (struct event*)malloc( sizeof( struct event ) );
 	mWriteEvent = (struct event*)malloc( sizeof( struct event ) );
+#endif
 
 	mHandler = NULL;
 	mArg = NULL;
@@ -137,10 +144,10 @@ SP_Session :: SP_Session( SP_Sid_t sid )
 
 SP_Session :: ~SP_Session()
 {
-	free( mReadEvent );
+	if( NULL != mReadEvent ) free( mReadEvent );
 	mReadEvent = NULL;
 
-	free( mWriteEvent );
+	if( NULL != mWriteEvent ) free( mWriteEvent );
 	mWriteEvent = NULL;
 
 	if( NULL != mHandler ) {

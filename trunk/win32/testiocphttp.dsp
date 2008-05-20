@@ -50,7 +50,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib libevent.lib spserver.lib ws2_32.lib /nologo /subsystem:console /machine:I386 /libpath:"..\..\libevent\WIN32-VC6\Debug" /libpath:"..\..\pthread\lib\\" /libpath:"Release\\"
+# ADD LINK32 spserver.lib ws2_32.lib MSVCRTD.LIB /nologo /subsystem:console /machine:I386 /libpath:"..\..\libevent\WIN32-VC6\Debug" /libpath:"..\..\pthread\lib\\" /libpath:"Release\\"
 
 !ELSEIF  "$(CFG)" == "testiocphttp - Win32 Debug"
 
@@ -75,7 +75,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 spserver.lib libevent.lib ws2_32.lib MSVCRTD.LIB /nologo /subsystem:console /debug /machine:I386 /nodefaultlib:"libc.lib" /nodefaultlib:"libcmt.lib" /nodefaultlib:"msvcrt.lib" /nodefaultlib:"libcd.lib" /nodefaultlib:"libcmtd.lib" /pdbtype:sept /libpath:"..\..\libevent\WIN32-VC6\Debug" /libpath:"..\..\pthread\lib\\" /libpath:"Debug\\"
+# ADD LINK32 spserver.lib ws2_32.lib MSVCRTD.LIB /nologo /subsystem:console /debug /machine:I386 /nodefaultlib:"libc.lib" /nodefaultlib:"libcmt.lib" /nodefaultlib:"msvcrt.lib" /nodefaultlib:"libcd.lib" /nodefaultlib:"libcmtd.lib" /pdbtype:sept /libpath:"..\..\libevent\WIN32-VC6\Debug" /libpath:"..\..\pthread\lib\\" /libpath:"Debug\\"
 # SUBTRACT LINK32 /map /nodefaultlib /force
 
 !ENDIF 

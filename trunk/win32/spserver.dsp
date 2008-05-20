@@ -64,8 +64,7 @@ LIB32=link.exe -lib
 # PROP Intermediate_Dir "Debug"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_MBCS" /D "_LIB" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Ob0 /I "..\..\libevent\\" /I "..\..\libevent\WIN32-Code" /D "WIN32" /D "_DEBUG" /D "_MBCS" /D "_LIB" /FR /YX /FD /GZ /c
-# SUBTRACT CPP /O<none>
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /D "WIN32" /D "_DEBUG" /D "_MBCS" /D "_LIB" /FR /YX /FD /GZ /c
 # ADD BASE RSC /l 0x804 /d "_DEBUG"
 # ADD RSC /l 0x804 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -86,19 +85,7 @@ LIB32=link.exe -lib
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
-SOURCE=..\spserver\event_msgqueue.c
-# End Source File
-# Begin Source File
-
 SOURCE=..\spserver\spbuffer.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\spserver\spdispatcher.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\spserver\speventcb.cpp
 # End Source File
 # Begin Source File
 
@@ -118,10 +105,6 @@ SOURCE=..\spserver\sphttpmsg.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=..\spserver\spiochannel.cpp
-# End Source File
-# Begin Source File
-
 SOURCE=..\spserver\spiocpevent.cpp
 # End Source File
 # Begin Source File
@@ -131,10 +114,6 @@ SOURCE=..\spserver\spiocpserver.cpp
 # Begin Source File
 
 SOURCE=..\spserver\spioutils.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\spserver\splfserver.cpp
 # End Source File
 # Begin Source File
 
@@ -154,10 +133,6 @@ SOURCE=..\spserver\spresponse.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=..\spserver\spserver.cpp
-# End Source File
-# Begin Source File
-
 SOURCE=..\spserver\spsession.cpp
 # End Source File
 # Begin Source File
@@ -174,6 +149,10 @@ SOURCE=..\spserver\sputils.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\spserver\spwin32buffer.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\spserver\spwin32iocp.cpp
 # End Source File
 # Begin Source File
@@ -186,19 +165,7 @@ SOURCE=..\spserver\spwin32port.cpp
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
 # Begin Source File
 
-SOURCE=..\spserver\event_msgqueue.h
-# End Source File
-# Begin Source File
-
 SOURCE=..\spserver\spbuffer.hpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\spserver\spdispatcher.hpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\spserver\speventcb.hpp
 # End Source File
 # Begin Source File
 
@@ -218,10 +185,6 @@ SOURCE=..\spserver\sphttpmsg.hpp
 # End Source File
 # Begin Source File
 
-SOURCE=..\spserver\spiochannel.hpp
-# End Source File
-# Begin Source File
-
 SOURCE=..\spserver\spiocpevent.hpp
 # End Source File
 # Begin Source File
@@ -231,10 +194,6 @@ SOURCE=..\spserver\spiocpserver.hpp
 # Begin Source File
 
 SOURCE=..\spserver\spioutils.hpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\spserver\splfserver.hpp
 # End Source File
 # Begin Source File
 
@@ -258,10 +217,6 @@ SOURCE=..\spserver\spresponse.hpp
 # End Source File
 # Begin Source File
 
-SOURCE=..\spserver\spserver.hpp
-# End Source File
-# Begin Source File
-
 SOURCE=..\spserver\spsession.hpp
 # End Source File
 # Begin Source File
@@ -275,6 +230,10 @@ SOURCE=..\spserver\spthreadpool.hpp
 # Begin Source File
 
 SOURCE=..\spserver\sputils.hpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\spserver\spwin32buffer.hpp
 # End Source File
 # Begin Source File
 
