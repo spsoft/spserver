@@ -3,7 +3,7 @@ Microsoft Developer Studio Workspace File, Format Version 6.00
 
 ###############################################################################
 
-Project: "spserver"=.\spserver.dsp - Package Owner=<4>
+Project: "spserver"=".\spserver.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -15,7 +15,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "testchat"=.\testchat.dsp - Package Owner=<4>
+Project: "testiocpchat"=".\testiocpchat.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -23,14 +23,11 @@ Package=<5>
 
 Package=<4>
 {{{
-    Begin Project Dependency
-    Project_Dep_Name spserver
-    End Project Dependency
 }}}
 
 ###############################################################################
 
-Project: "testchat_d"=.\testchat_d.dsp - Package Owner=<4>
+Project: "testiocpecho"=".\testiocpecho.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -38,14 +35,11 @@ Package=<5>
 
 Package=<4>
 {{{
-    Begin Project Dependency
-    Project_Dep_Name spserver
-    End Project Dependency
 }}}
 
 ###############################################################################
 
-Project: "testecho"=.\testecho.dsp - Package Owner=<4>
+Project: "testiocphttp"=".\testiocphttp.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -53,14 +47,11 @@ Package=<5>
 
 Package=<4>
 {{{
-    Begin Project Dependency
-    Project_Dep_Name spserver
-    End Project Dependency
 }}}
 
 ###############################################################################
 
-Project: "testhttp"=.\testhttp.dsp - Package Owner=<4>
+Project: "teststress"=".\teststress.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -75,73 +66,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "testiocpchat"=.\testiocpchat.dsp - Package Owner=<4>
-
-Package=<5>
-{{{
-}}}
-
-Package=<4>
-{{{
-}}}
-
-###############################################################################
-
-Project: "testiocpecho"=.\testiocpecho.dsp - Package Owner=<4>
-
-Package=<5>
-{{{
-}}}
-
-Package=<4>
-{{{
-}}}
-
-###############################################################################
-
-Project: "testiocphttp"=.\testiocphttp.dsp - Package Owner=<4>
-
-Package=<5>
-{{{
-}}}
-
-Package=<4>
-{{{
-}}}
-
-###############################################################################
-
-Project: "testsmtp"=.\testsmtp.dsp - Package Owner=<4>
-
-Package=<5>
-{{{
-}}}
-
-Package=<4>
-{{{
-    Begin Project Dependency
-    Project_Dep_Name spserver
-    End Project Dependency
-}}}
-
-###############################################################################
-
-Project: "teststress"=.\teststress.dsp - Package Owner=<4>
-
-Package=<5>
-{{{
-}}}
-
-Package=<4>
-{{{
-    Begin Project Dependency
-    Project_Dep_Name spserver
-    End Project Dependency
-}}}
-
-###############################################################################
-
-Project: "testthreadpool"=.\testthreadpool.dsp - Package Owner=<4>
+Project: "testthreadpool"=".\testthreadpool.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{

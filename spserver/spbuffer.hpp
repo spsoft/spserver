@@ -9,6 +9,12 @@
 
 #include <stdlib.h>
 
+#ifdef WIN32
+typedef struct spwin32buffer sp_evbuffer_t;
+#else
+typedef struct evbuffer sp_evbuffer_t;
+#endif
+
 struct evbuffer;
 
 class SP_Buffer {
@@ -30,7 +36,7 @@ public:
 	SP_Buffer * take();
 
 private:
-	struct evbuffer * mBuffer;
+	sp_evbuffer_t * mBuffer;
 
 	friend class SP_IOChannel;
 };

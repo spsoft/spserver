@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "spthread.h"
+#include "spthread.hpp"
 
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>

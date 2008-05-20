@@ -11,16 +11,33 @@
 #include "spporting.hpp"
 
 #include "spbuffer.hpp"
+
+#ifdef WIN32
+
+#include "spwin32buffer.hpp"
+
+#else
+
 #include "event.h"
+
+#define sp_evbuffer_new      evbuffer_new
+#define sp_evbuffer_free     evbuffer_free
+#define sp_evbuffer_add      evbuffer_add
+#define sp_evbuffer_drain    evbuffer_drain
+#define sp_evbuffer_expand   evbuffer_expand
+#define sp_evbuffer_remove   evbuffer_remove
+#define sp_evbuffer_readline evbuffer_readline
+
+#endif
 
 SP_Buffer :: SP_Buffer()
 {
-	mBuffer = evbuffer_new();
+	mBuffer = sp_evbuffer_new();
 }
 
 SP_Buffer :: ~SP_Buffer()
 {
-	evbuffer_free( mBuffer );
+	sp_evbuffer_free( mBuffer );
 	mBuffer = NULL;
 }
 
@@ -28,7 +45,7 @@ int SP_Buffer :: append( const void * buffer, int len )
 {
 	len = len <= 0 ? strlen( (char*)buffer ) : len;
 
-	return evbuffer_add( mBuffer, (void*)buffer, len );
+	return sp_evbuffer_add( mBuffer, (void*)buffer, len );
 }
 
 int SP_Buffer :: append( const SP_Buffer * buffer )
@@ -42,7 +59,7 @@ int SP_Buffer :: append( const SP_Buffer * buffer )
 
 void SP_Buffer :: erase( int len )
 {
-	evbuffer_drain( mBuffer, len );
+	sp_evbuffer_drain( mBuffer, len );
 }
 
 void SP_Buffer :: reset()
@@ -53,7 +70,7 @@ void SP_Buffer :: reset()
 const void * SP_Buffer :: getBuffer() const
 {
 	if( NULL != EVBUFFER_DATA( mBuffer ) ) {
-		evbuffer_expand( mBuffer, 1 );
+		sp_evbuffer_expand( mBuffer, 1 );
 		((char*)(EVBUFFER_DATA( mBuffer )))[ getSize() ] = '\0';
 		return EVBUFFER_DATA( mBuffer );
 	} else {
@@ -68,12 +85,12 @@ size_t SP_Buffer :: getSize() const
 
 char * SP_Buffer :: getLine()
 {
-	return evbuffer_readline( mBuffer );
+	return sp_evbuffer_readline( mBuffer );
 }
 
 int SP_Buffer :: take( char * buffer, int len )
 {
-	len = evbuffer_remove( mBuffer, buffer, len - 1);
+	len = sp_evbuffer_remove( mBuffer, buffer, len - 1);
 	buffer[ len ] = '\0';
 
 	return len;
@@ -83,7 +100,7 @@ SP_Buffer * SP_Buffer :: take()
 {
 	SP_Buffer * ret = new SP_Buffer();
 
-	struct evbuffer * tmp = ret->mBuffer;
+	sp_evbuffer_t * tmp = ret->mBuffer;
 	ret->mBuffer = mBuffer;
 	mBuffer = tmp;
 
@@ -94,7 +111,7 @@ const void * SP_Buffer :: find( const void * key, size_t len )
 {
 	//return (void*)evbuffer_find( mBuffer, (u_char*)key, len );
 
-	struct evbuffer * buffer = mBuffer;
+	sp_evbuffer_t * buffer = mBuffer;
 	u_char * what = (u_char*)key;
 
 	size_t remain = buffer->off;
