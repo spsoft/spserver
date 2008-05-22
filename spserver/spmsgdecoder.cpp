@@ -8,6 +8,7 @@
 #include "spmsgdecoder.hpp"
 
 #include "spbuffer.hpp"
+#include "sputils.hpp"
 
 //-------------------------------------------------------------------
 
@@ -70,6 +71,42 @@ int SP_LineMsgDecoder :: decode( SP_Buffer * inBuffer )
 const char * SP_LineMsgDecoder :: getMsg()
 {
 	return mLine;
+}
+
+//-------------------------------------------------------------------
+
+SP_MultiLineMsgDecoder :: SP_MultiLineMsgDecoder()
+{
+	mQueue = new SP_CircleQueue();
+}
+
+SP_MultiLineMsgDecoder :: ~SP_MultiLineMsgDecoder()
+{
+	for( ; NULL != mQueue->top(); ) {
+		free( (void*)mQueue->pop() );
+	}
+
+	delete mQueue;
+	mQueue = NULL;
+}
+
+int SP_MultiLineMsgDecoder :: decode( SP_Buffer * inBuffer )
+{
+	int ret = eMoreData;
+
+	for( ; ; ) {
+		char * line = inBuffer->getLine();
+		if( NULL == line ) break;
+		mQueue->push( line );
+		ret = eOK;
+	}
+
+	return ret;
+}
+
+SP_CircleQueue * SP_MultiLineMsgDecoder :: getQueue()
+{
+	return mQueue;
 }
 
 //-------------------------------------------------------------------
