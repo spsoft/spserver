@@ -18,6 +18,7 @@
 #include "sphandler.hpp"
 #include "spresponse.hpp"
 #include "sprequest.hpp"
+#include "sputils.hpp"
 
 class SP_EchoHandler : public SP_Handler {
 public:
@@ -26,7 +27,7 @@ public:
 
 	// return -1 : terminate session, 0 : continue
 	virtual int start( SP_Request * request, SP_Response * response ) {
-		request->setMsgDecoder( new SP_LineMsgDecoder() );
+		request->setMsgDecoder( new SP_MultiLineMsgDecoder() );
 		response->getReply()->getMsg()->append(
 			"Welcome to line echo server, enter 'quit' to quit.\r\n" );
 
@@ -35,16 +36,25 @@ public:
 
 	// return -1 : terminate session, 0 : continue
 	virtual int handle( SP_Request * request, SP_Response * response ) {
-		SP_LineMsgDecoder * decoder = (SP_LineMsgDecoder*)request->getMsgDecoder();
+		SP_MultiLineMsgDecoder * decoder = (SP_MultiLineMsgDecoder*)request->getMsgDecoder();
+		SP_CircleQueue * queue = decoder->getQueue();
 
-		if( 0 != strcasecmp( (char*)decoder->getMsg(), "quit" ) ) {
-			response->getReply()->getMsg()->append( (char*)decoder->getMsg() );
-			response->getReply()->getMsg()->append( "\r\n" );
-			return 0;
-		} else {
-			response->getReply()->getMsg()->append( "Byebye\r\n" );
-			return -1;
+		int ret = 0;
+		for( ; NULL != queue->top(); ) {
+			char * line = (char*)queue->pop();
+
+			if( 0 != strcasecmp( line, "quit" ) ) {
+				response->getReply()->getMsg()->append( line );
+				response->getReply()->getMsg()->append( "\r\n" );
+			} else {
+				response->getReply()->getMsg()->append( "Byebye\r\n" );
+				ret = -1;
+			}
+
+			free( line );
 		}
+
+		return ret;
 	}
 
 	virtual void error( SP_Response * response ) {}

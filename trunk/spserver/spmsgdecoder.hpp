@@ -45,6 +45,22 @@ private:
 	char * mLine;
 };
 
+class SP_CircleQueue;
+
+class SP_MultiLineMsgDecoder : public SP_MsgDecoder {
+public:
+	SP_MultiLineMsgDecoder();
+	~SP_MultiLineMsgDecoder();
+
+	// return SP_MsgDecoder::eMoreData until meet <CRLF>
+	virtual int decode( SP_Buffer * inBuffer );
+
+	SP_CircleQueue * getQueue();
+
+private:
+	SP_CircleQueue * mQueue;
+};
+
 class SP_DotTermMsgDecoder : public SP_MsgDecoder {
 public:
 	SP_DotTermMsgDecoder();
