@@ -53,7 +53,7 @@ typedef struct tagSP_IocpSession {
 class SP_IocpEventCallback {
 public:
 
-	enum { eKeyAccept, eKeyResponse, eKeyFree };
+	enum { eKeyAccept, eKeyMsgQueue, eKeyFree };
 
 	static BOOL addSession( SP_IocpEventArg * eventArg, HANDLE client, SP_Session * session );
 	static BOOL addRecv( SP_Session * session );
@@ -97,8 +97,6 @@ public:
 	static void doCompletion( SP_IocpEventArg * eventArg, SP_Message * msg );
 
 	static int isSystemSid( SP_Sid_t * sid );
-
-	static void enqueue( SP_IocpEventArg * eventArg, SP_Response * response );
 
 	static DWORD timeoutNext( SP_IocpEventHeap * eventHeap );
 

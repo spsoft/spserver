@@ -431,17 +431,21 @@ void SP_IocpEventCallback :: onTimeout( SP_IocpEventArg * eventArg )
 				||( curr.tv_sec > first->tv_sec ) ) {
 			event = eventHeap->pop();
 
-			SP_IocpSession_t * iocpSession = NULL;
+			if( SP_IocpEvent_t::eEventTimer == event->mType ) {
+				event->mOnTimer( event );
+			} else {
+				SP_IocpSession_t * iocpSession = NULL;
 
-			if( SP_IocpEvent_t::eEventRecv == event->mType ) {
-				iocpSession = CONTAINING_RECORD( event, SP_IocpSession_t, mRecvEvent );
-			} else if( SP_IocpEvent_t::eEventSend == event->mType ) {
-				iocpSession = CONTAINING_RECORD( event, SP_IocpSession_t, mSendEvent );
+				if( SP_IocpEvent_t::eEventRecv == event->mType ) {
+					iocpSession = CONTAINING_RECORD( event, SP_IocpSession_t, mRecvEvent );
+				} else if( SP_IocpEvent_t::eEventSend == event->mType ) {
+					iocpSession = CONTAINING_RECORD( event, SP_IocpSession_t, mSendEvent );
+				}
+
+				assert( NULL != iocpSession );
+
+				SP_IocpEventHelper::doTimeout( iocpSession->mSession );
 			}
-
-			assert( NULL != iocpSession );
-
-			SP_IocpEventHelper::doTimeout( iocpSession->mSession );
 		} else {
 			break;
 		}
@@ -505,18 +509,9 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 
 	if( eKeyAccept == completionKey ) {
 		return onAccept( acceptArg );
-	} else if( eKeyResponse == completionKey ) {
-		SP_IocpMsgQueue_t * msgQueue = eventArg->getResponseQueue();
-
-		for( ; msgQueue->mQueue->getLength() > 0; ) {
-			SP_Response * response = NULL;
-
-			EnterCriticalSection( &( msgQueue->mMutex ) );
-			response = (SP_Response*)msgQueue->mQueue->pop();
-			LeaveCriticalSection( &( msgQueue->mMutex ) );
-
-			onResponse( response, eventArg );
-		}
+	} else if( eKeyMsgQueue == completionKey ) {
+		SP_IocpMsgQueue * msgQueue = (SP_IocpMsgQueue*)overlapped;
+		msgQueue->process();
 		return TRUE;
 	} else if( eKeyFree == completionKey ) {
 		assert( NULL == iocpSession );
@@ -578,7 +573,7 @@ DWORD SP_IocpEventHelper :: timeoutNext( SP_IocpEventHeap * eventHeap )
 	DWORD ret = ( first->tv_sec - curr.tv_sec ) * 1000
 		+ ( first->tv_usec - curr.tv_usec ) / 1000;
 
-	if( ret < 0 ) ret = 1;
+	if( ret < 0 ) ret = 0;
 
 	return ret;
 }
@@ -615,7 +610,7 @@ void SP_IocpEventHelper :: worker( void * arg )
 
 	session->setRunning( 0 );
 
-	enqueue( eventArg, response );
+	eventArg->getResponseQueue()->push( response );
 }
 
 
@@ -714,7 +709,7 @@ void SP_IocpEventHelper :: error( void * arg )
 	SP_Response * response = new SP_Response( sid );
 	session->getHandler()->error( response );
 
-	enqueue( eventArg, response );
+	eventArg->getResponseQueue()->push( response );
 
 	// the other threads will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
@@ -770,7 +765,7 @@ void SP_IocpEventHelper :: timeout( void * arg )
 	SP_Response * response = new SP_Response( sid );
 	session->getHandler()->timeout( response );
 
-	enqueue( eventArg, response );
+	eventArg->getResponseQueue()->push( response );
 
 	// the other threads will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
@@ -803,23 +798,10 @@ void SP_IocpEventHelper :: start( void * arg )
 	session->setStatus( 0 == startRet ? SP_Session::eNormal : SP_Session::eWouldExit );
 	session->setRunning( 0 );
 
-	enqueue( eventArg, response );
+	eventArg->getResponseQueue()->push( response );
 }
 
 void SP_IocpEventHelper :: doCompletion( SP_IocpEventArg * eventArg, SP_Message * msg )
 {
 	eventArg->getOutputResultQueue()->push( msg );
-}
-
-void SP_IocpEventHelper :: enqueue( SP_IocpEventArg * eventArg, SP_Response * response )
-{
-	SP_IocpMsgQueue_t * msgQueue = eventArg->getResponseQueue();
-
-	EnterCriticalSection( &( msgQueue->mMutex ) );
-	msgQueue->mQueue->push( response );
-	if( msgQueue->mQueue->getLength() == 1 ) {
-		PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
-			SP_IocpEventCallback::eKeyResponse, NULL );
-	}
-	LeaveCriticalSection( &( msgQueue->mMutex ) );
 }

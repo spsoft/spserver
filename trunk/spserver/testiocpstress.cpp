@@ -42,6 +42,7 @@ struct SP_TestClient {
 
 	int mSendMsgs;
 	int mRecvMsgs;
+	int mIsStop;
 };
 
 void showUsage( const char * program )
@@ -57,9 +58,8 @@ void showUsage( const char * program )
 
 void close_client( SP_TestClient * client )
 {
-	if( INVALID_HANDLE_VALUE != (HANDLE)client->mFd ) {
-		closesocket( client->mFd );
-		client->mFd = (SOCKET)INVALID_HANDLE_VALUE;
+	if( 0 == client->mIsStop ) {
+		client->mIsStop = 1;
 		gClients--;
 	}
 }

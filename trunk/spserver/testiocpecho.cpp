@@ -85,7 +85,7 @@ int main(void)
 
 	_CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
 
-	assert( 0 == sp_initsock() );
+	if( 0 != sp_initsock() ) assert( 0 );
 
 	SP_IocpServer server( "", port, new SP_EchoHandlerFactory() );
 	server.setTimeout( 0 );

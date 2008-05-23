@@ -83,7 +83,7 @@ int main( int argc, char * argv[] )
 	int port = 8080, maxThreads = 10;
 	const char * serverType = "hahs";
 
-	assert( 0 == sp_initsock() );
+	if( 0 != sp_initsock() ) assert( 0 );
 
 	SP_IocpServer server( "", port, new SP_HttpHandlerAdapterFactory( new SP_HttpEchoHandlerFactory() ) );
 

@@ -123,15 +123,67 @@ void SP_IocpEventHeap :: shiftDown( int index, SP_IocpEvent_t * item )
 
 //===================================================================
 
+SP_IocpMsgQueue :: SP_IocpMsgQueue( HANDLE completionPort,
+		DWORD completionKey, QueueFunc_t func, void * arg )
+{
+	mCompletionPort = completionPort;
+	mCompletionKey = completionKey;
+	mFunc = func;
+	mArg = arg;
+
+	mMutex = CreateMutex( NULL, FALSE, NULL );
+	mQueue = new SP_CircleQueue();
+}
+
+SP_IocpMsgQueue :: ~SP_IocpMsgQueue()
+{
+	CloseHandle( mMutex );
+	delete mQueue;
+	mQueue = NULL;
+}
+
+int SP_IocpMsgQueue :: push( void * queueData )
+{
+	WaitForSingleObject( mMutex, INFINITE );
+
+	mQueue->push( queueData );
+	if( 1 == mQueue->getLength() ) {
+		PostQueuedCompletionStatus( mCompletionPort, 0, mCompletionKey, (OVERLAPPED*)this );
+	}
+
+	ReleaseMutex( mMutex );
+
+	return 0;
+}
+
+int SP_IocpMsgQueue :: process()
+{
+	WaitForSingleObject( mMutex, INFINITE );
+
+	for( ; mQueue->getLength() > 0; ) {
+		void * queueData = mQueue->pop();
+
+		ReleaseMutex( mMutex );
+
+		mFunc( queueData, mArg );		
+
+		WaitForSingleObject( mMutex, INFINITE );
+	}
+
+	ReleaseMutex( mMutex );
+
+	return 0;
+}
+
+//===================================================================
+
 SP_IocpEventArg :: SP_IocpEventArg( int timeout )
 {
 	mInputResultQueue = new SP_BlockingQueue();
 	mOutputResultQueue = new SP_BlockingQueue();
 
-	mResponseQueue = (SP_IocpMsgQueue_t*)malloc( sizeof( SP_IocpMsgQueue_t ) );
-	InitializeCriticalSection( &( mResponseQueue->mMutex ) );
-	mResponseQueue->mQueue = new SP_BlockingQueue();
-
+	mResponseQueue = NULL;
+	
 	mSessionManager = new SP_SessionManager();
 
 	mEventHeap = new SP_IocpEventHeap();
@@ -157,12 +209,8 @@ SP_IocpEventArg :: ~SP_IocpEventArg()
 	if( NULL != mEventHeap ) delete mEventHeap;
 	mEventHeap = NULL;
 
-	if( NULL != mResponseQueue ) {
-		DeleteCriticalSection( &( mResponseQueue->mMutex ) );
-		delete mResponseQueue->mQueue;
-		free( mResponseQueue );
-		mResponseQueue = NULL;
-	}
+	if( NULL != mResponseQueue ) delete mResponseQueue;
+	mResponseQueue = NULL;
 }
 
 HANDLE SP_IocpEventArg :: getCompletionPort()
@@ -179,8 +227,13 @@ SP_BlockingQueue * SP_IocpEventArg :: getOutputResultQueue()
 {
 	return mOutputResultQueue;
 }
-	
-SP_IocpMsgQueue_t * SP_IocpEventArg :: getResponseQueue()
+
+void SP_IocpEventArg :: setResponseQueue( SP_IocpMsgQueue * responseQueue )
+{
+	mResponseQueue = responseQueue;
+}
+
+SP_IocpMsgQueue * SP_IocpEventArg :: getResponseQueue()
 {
 	return mResponseQueue;
 }
@@ -193,6 +246,11 @@ SP_SessionManager * SP_IocpEventArg :: getSessionManager()
 SP_IocpEventHeap * SP_IocpEventArg :: getEventHeap()
 {
 	return mEventHeap;
+}
+
+void SP_IocpEventArg :: setTimeout( int timeout )
+{
+	mTimeout = timeout;
 }
 
 int SP_IocpEventArg :: getTimeout()

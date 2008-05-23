@@ -10,11 +10,14 @@
 
 typedef struct tagSP_IocpEvent {
 	enum { SP_IOCP_MAX_IOV = 8 };
-	enum { eEventRecv, eEventSend };
+	enum { eEventRecv, eEventSend, eEventTimer };
 
 	OVERLAPPED mOverlapped;
-	WSABUF mWsaBuf[ SP_IOCP_MAX_IOV ];
 	int mType;
+	union {
+		WSABUF mWsaBuf[ SP_IOCP_MAX_IOV ];
+		void ( * mOnTimer ) ( void * );
+	};
 
 	int mHeapIndex;
 	struct timeval mTimeout;
@@ -48,13 +51,30 @@ private:
 	int mMaxCount, mCount;
 };
 
+class SP_CircleQueue;
 class SP_BlockingQueue;
 class SP_SessionManager;
 
-typedef struct tagSP_IocpMsgQueue {
-	CRITICAL_SECTION mMutex;
-	SP_BlockingQueue * mQueue;
-} SP_IocpMsgQueue_t;
+class SP_IocpMsgQueue {
+public:
+	typedef void ( * QueueFunc_t ) ( void * queueData, void * arg );
+
+	SP_IocpMsgQueue( HANDLE completionPort, DWORD completionKey, QueueFunc_t func, void * arg );
+	~SP_IocpMsgQueue();
+
+	int push( void * queueData );
+
+	int process();
+
+private:
+	HANDLE mCompletionPort;
+	DWORD mCompletionKey;
+	QueueFunc_t mFunc;
+	void * mArg;
+
+	HANDLE mMutex;
+	SP_CircleQueue * mQueue;
+};
 
 class SP_IocpEventArg {
 public:
@@ -64,7 +84,9 @@ public:
 	HANDLE getCompletionPort();
 	SP_BlockingQueue * getInputResultQueue();
 	SP_BlockingQueue * getOutputResultQueue();
-	SP_IocpMsgQueue_t * getResponseQueue();
+
+	void setResponseQueue( SP_IocpMsgQueue * responseQueue );
+	SP_IocpMsgQueue * getResponseQueue();
 
 	SP_SessionManager * getSessionManager();
 
@@ -80,7 +102,7 @@ public:
 private:
 	SP_BlockingQueue * mInputResultQueue;
 	SP_BlockingQueue * mOutputResultQueue;
-	SP_IocpMsgQueue_t * mResponseQueue;
+	SP_IocpMsgQueue * mResponseQueue;
 
 	SP_SessionManager * mSessionManager;
 

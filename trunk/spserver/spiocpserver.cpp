@@ -176,6 +176,9 @@ int SP_IocpServer :: start()
 
 		SP_IocpEventArg eventArg( mTimeout );
 		eventArg.loadDisconnectEx( listenFD );
+		SP_IocpMsgQueue * msgQueue = new SP_IocpMsgQueue( eventArg.getCompletionPort(),
+				SP_IocpEventCallback::eKeyMsgQueue, SP_IocpEventCallback::onResponse, &eventArg );
+		eventArg.setResponseQueue( msgQueue );
 
 		SP_IocpAcceptArg_t acceptArg;
 		memset( &acceptArg, 0, sizeof( acceptArg ) );

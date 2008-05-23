@@ -303,7 +303,7 @@ int main( int argc, char * argv[] )
 {
 	int port = 5555, maxThreads = 10;
 
-	assert( 0 == sp_initsock() );
+	if( 0 != sp_initsock() ) assert( 0 );
 
 	SP_OnlineSidList onlineSidList;
 
