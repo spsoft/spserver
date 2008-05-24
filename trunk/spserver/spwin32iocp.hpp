@@ -94,6 +94,8 @@ public:
 	static void doClose( SP_Session * session );
 	static void close( void * arg );
 
+	static void doDecodeForWork( SP_Session * session );
+
 	static void doCompletion( SP_IocpEventArg * eventArg, SP_Message * msg );
 
 	static int isSystemSid( SP_Sid_t * sid );
