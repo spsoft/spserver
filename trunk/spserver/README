@@ -89,7 +89,7 @@ $ telnet 127.0.0.1 1025
 Special thanks go to Andrew Danforth, who provides a good solution to
 use libevent in multithreaded environment.
 
-Reports of successful use of spserver are appreciated.
+Any and all comments are appreciated.
 
 Enjoy!
 
