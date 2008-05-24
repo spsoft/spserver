@@ -1,40 +1,16 @@
-			Building spserver for win32 with MSVC6
+			 spserver/win32 README
 
-1.Building libevent-1.4.3 with MSVC6
+spserver/win32 is a TCP server framework library written in C++ based on IOCP.
 
-	1) Get libevent through svn:
-		svn co -r 709 https://levent.svn.sourceforge.net/svnroot/levent/tags/release-1.4.3-stable libevent
+spserver implements the Half-Sync/Half-Async patterns. It uses a single thread
+to process IO (the async layer), and a thread pool to process the service
+logic (the sync layer, the long time duration work can be done here).
 
-	2) Before building, it need do some change with libevent source code. Please refer
-		spserver/win32/libevent-msvc6/libevent.diff
+You can get the code from the spserver home page:
 
-	3) Copy spserver/win32/libevent-msvc6 to libevent directory, use libevent.dsw to build libevent. 
+	http://code.google.com/p/spserver/
 
-
-2. Building spserver
-
-Before building spserver, libevent-1.4.3 must been installed.
-
-Directory structure:
-
-		.
-		|-- libevent
-		|   |-- WIN32-VC6
-		|   |   `-- Debug
-		|   |       `-- libevent.lib
-		|   |-- event-config.h
-		|   `-- event.h
-		|
-		`-- spserver
-			|-- spserver
-			|   |-- spserver.cpp
-			|   |-- spserver.hpp
-			|   `-- ...
-			`-- win32
-				|-- spserver.dsw
-				`-- ...
-
-Reports of successful use of spserver are appreciated.
+Any and all comments are appreciated.
 
 Enjoy!
 
