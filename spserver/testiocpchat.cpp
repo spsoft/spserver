@@ -24,6 +24,7 @@
 #include "sphandler.hpp"
 #include "spresponse.hpp"
 #include "sprequest.hpp"
+#include "sputils.hpp"
 
 #pragma comment(lib,"ws2_32")
 #pragma comment(lib,"mswsock")
@@ -163,7 +164,7 @@ void SP_ChatHandler :: broadcast( SP_Response * response, const char * buffer, S
 
 int SP_ChatHandler :: start( SP_Request * request, SP_Response * response )
 {
-	request->setMsgDecoder( new SP_LineMsgDecoder() );
+	request->setMsgDecoder( new SP_MultiLineMsgDecoder() );
 
 	mSid = response->getFromSid();
 
@@ -184,24 +185,31 @@ int SP_ChatHandler :: start( SP_Request * request, SP_Response * response )
 
 int SP_ChatHandler :: handle( SP_Request * request, SP_Response * response )
 {
-	SP_LineMsgDecoder * decoder = (SP_LineMsgDecoder*)request->getMsgDecoder();
+	SP_MultiLineMsgDecoder * decoder = (SP_MultiLineMsgDecoder*)request->getMsgDecoder();
+	SP_CircleQueue * msgQueue = decoder->getQueue();
 
 	char buffer[ 256 ] = { 0 };
+	int ret = 0;
 
-	if( 0 != strcasecmp( (char*)decoder->getMsg(), "quit" ) ) {
-		snprintf( buffer, sizeof( buffer ), "%d say: %s\r\n", mSid.mKey, (char*)decoder->getMsg() );
-		broadcast( response, buffer );
+	for( ; NULL != msgQueue->top(); ) {
+		char * line = (char*)msgQueue->pop();
+		if( 0 != strcasecmp( line, "quit" ) ) {
+			snprintf( buffer, sizeof( buffer ), "%d say: %s\r\n", mSid.mKey, line );
+			broadcast( response, buffer );
+		} else {
+			snprintf( buffer, sizeof( buffer ), "SYS : %d normal offline\r\n", mSid.mKey );
+			broadcast( response, buffer, &mSid );
 
-		return 0;
-	} else {
-		snprintf( buffer, sizeof( buffer ), "SYS : %d normal offline\r\n", mSid.mKey );
-		broadcast( response, buffer, &mSid );
+			response->getReply()->getMsg()->append( "SYS : Byebye\r\n" );
+			response->getReply()->setCompletionKey( ++mMsgSeq );
 
-		response->getReply()->getMsg()->append( "SYS : Byebye\r\n" );
-		response->getReply()->setCompletionKey( ++mMsgSeq );
+			ret = -1;
+		}
 
-		return -1;
+		free( line );
 	}
+
+	return ret;
 }
 
 void SP_ChatHandler :: error( SP_Response * response )

@@ -36,6 +36,8 @@ BOOL SP_IocpEventCallback :: addSession( SP_IocpEventArg * eventArg, HANDLE clie
 		memset( iocpSession, 0, sizeof( SP_IocpSession_t ) );
 		iocpSession->mRecvEvent.mHeapIndex = -1;
 		iocpSession->mSendEvent.mHeapIndex = -1;
+		iocpSession->mRecvEvent.mType = SP_IocpEvent_t::eEventRecv;
+		iocpSession->mSendEvent.mType = SP_IocpEvent_t::eEventSend;
 
 		iocpSession->mHandle = client;
 		iocpSession->mSession = session;
@@ -99,49 +101,6 @@ BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 	return ret;
 }
 
-BOOL SP_IocpEventCallback :: addSend( SP_Session * session )
-{
-	BOOL ret = TRUE;
-
-	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
-
-	if( 0 == session->getWriting() ) {
-		if( session->getOutList()->getCount() > 0 ) {
-			SP_Message * msg = (SP_Message*)session->getOutList()->getItem(0);
-			iocpSession->mSendEvent.mWsaBuf[0].buf = (char*)msg->getMsg()->getBuffer();
-			iocpSession->mSendEvent.mWsaBuf[0].len = msg->getMsg()->getSize();
-	
-			iocpSession->mSendEvent.mType = SP_IocpEvent_t::eEventSend;
-			memset( &( iocpSession->mSendEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
-		
-			DWORD sendBytes;
-
-			if( SOCKET_ERROR == WSASend( (SOCKET)iocpSession->mHandle, iocpSession->mSendEvent.mWsaBuf, 1,
-					&sendBytes, 0,	&( iocpSession->mSendEvent.mOverlapped ), NULL ) ) {
-				if( ERROR_IO_PENDING != WSAGetLastError() ) {
-					sp_syslog( LOG_ERR, "WSASend fail, errno %d", WSAGetLastError() );
-					ret = FALSE;
-				}
-			}
-
-			if( ret ) {
-				iocpSession->mSession->setWriting( 1 );
-
-				SP_IocpEventArg * eventArg = iocpSession->mEventArg;
-
-				if( eventArg->getTimeout() > 0 ) {
-					SP_IocpEvent_t * sendEvent = &( iocpSession->mSendEvent );
-					sp_gettimeofday( &( sendEvent->mTimeout ), NULL );
-					sendEvent->mTimeout.tv_sec += eventArg->getTimeout();
-					eventArg->getEventHeap()->push( sendEvent );
-				}
-			}
-		}
-	}
-
-	return ret;
-}
-
 BOOL SP_IocpEventCallback :: onRecv( SP_IocpSession_t * iocpSession, int bytesTransferred )
 {
 	SP_IocpEvent_t * recvEvent = &( iocpSession->mRecvEvent );
@@ -154,14 +113,25 @@ BOOL SP_IocpEventCallback :: onRecv( SP_IocpSession_t * iocpSession, int bytesTr
 	session->setReading( 0 );
 
 	session->getInBuffer()->append( iocpSession->mBuffer, bytesTransferred );
-	if( 0 == session->getRunning() ) {
-		SP_MsgDecoder * decoder = session->getRequest()->getMsgDecoder();
-		if( SP_MsgDecoder::eOK == decoder->decode( session->getInBuffer() ) ) {
-			SP_IocpEventHelper::doWork( session );
-		}
-	}
 
-	return addRecv( session );
+	addRecv( session );
+
+	SP_IocpEventHelper::doDecodeForWork( session );
+
+	return TRUE;
+}
+
+BOOL SP_IocpEventCallback :: addSend( SP_Session * session )
+{
+	BOOL ret = TRUE;
+
+	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
+
+	if( 0 == session->getWriting() ) ret = transmit( iocpSession, 0 );
+	
+	SP_IocpEventHelper::doDecodeForWork( session );
+
+	return ret;
 }
 
 BOOL SP_IocpEventCallback :: transmit( SP_IocpSession_t * iocpSession, int bytesTransferred )
@@ -235,6 +205,12 @@ BOOL SP_IocpEventCallback :: transmit( SP_IocpSession_t * iocpSession, int bytes
 			}
 		}
 
+		if( eventArg->getTimeout() > 0 ) {
+			SP_IocpEvent_t * sendEvent = &( iocpSession->mSendEvent );
+			sp_gettimeofday( &( sendEvent->mTimeout ), NULL );
+			sendEvent->mTimeout.tv_sec += eventArg->getTimeout();
+			eventArg->getEventHeap()->push( sendEvent );
+		}
 		session->setWriting( 1 );
 	}
 
@@ -264,18 +240,9 @@ BOOL SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession, int bytesTr
 			session->setStatus( SP_Session::eWouldExit );
 		}
 	} else {
-		// process pending input
-		if( 0 == session->getRunning() ) {
-			SP_MsgDecoder * decoder = session->getRequest()->getMsgDecoder();
-			if( SP_MsgDecoder::eOK == decoder->decode( session->getInBuffer() ) ) {
-				SP_IocpEventHelper::doWork( session );
-			}
-		} else {
-			// If this session is running, then onResponse will add write event for this session.
-			// So no need to add write event here.
-		}
-
 		ret = transmit( iocpSession, bytesTransferred );
+		
+		SP_IocpEventHelper::doDecodeForWork( session );	
 
 		if( session->getOutList()->getCount() <= 0 ) {
 			if( SP_Session::eExit == session->getStatus() ) {
@@ -576,6 +543,21 @@ DWORD SP_IocpEventHelper :: timeoutNext( SP_IocpEventHeap * eventHeap )
 	if( ret < 0 ) ret = 0;
 
 	return ret;
+}
+
+void SP_IocpEventHelper :: doDecodeForWork( SP_Session * session )
+{
+	if( 0 == session->getRunning() ) {
+		SP_MsgDecoder * decoder = session->getRequest()->getMsgDecoder();
+		int ret = decoder->decode( session->getInBuffer() );
+		if( SP_MsgDecoder::eOK == ret ) {
+			doWork( session );
+		} else if( SP_MsgDecoder::eMoreData != ret ) {
+			doError( session );
+		} else {
+			assert( ret == SP_MsgDecoder::eMoreData );
+		}
+	}
 }
 
 void SP_IocpEventHelper :: doWork( SP_Session * session )
