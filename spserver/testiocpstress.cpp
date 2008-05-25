@@ -31,7 +31,6 @@ struct SP_TestEvent {
 	OVERLAPPED mOverlapped;
 	WSABUF mWsaBuf;
 	int mType;
-	char mBuffer[ 4096 ];
 };
 
 struct SP_TestClient {
@@ -64,16 +63,24 @@ void close_client( SP_TestClient * client )
 	}
 }
 
-void on_read( SP_TestClient * client, SP_TestEvent * event, int bytesTransferred )
+void on_read( SP_TestClient * client, SP_TestEvent * event )
 {
+	char buffer[ 4096 ] = { 0 };
+	int bytesTransferred = recv( (int)client->mFd, buffer, sizeof( buffer ), 0 );
+
+	if( bytesTransferred <= 0 ) {
+		close_client( client );
+		return;
+	}
+
 	for( int i = 0; i < bytesTransferred; i++ ) {
-		if( '\n' == event->mBuffer[i] ) client->mRecvMsgs++;
+		if( '\n' == buffer[i] ) client->mRecvMsgs++;
 	}
 
 	memset( &( event->mOverlapped ), 0, sizeof( OVERLAPPED ) );
 	event->mType = SP_TestEvent::eEventRecv;
-	event->mWsaBuf.buf = event->mBuffer;
-	event->mWsaBuf.len = sizeof( event->mBuffer );
+	event->mWsaBuf.buf = NULL;
+	event->mWsaBuf.len = 0;
 
 	DWORD recvBytes = 0, flags = 0;
 	if( SOCKET_ERROR == WSARecv( (SOCKET)client->mFd, &( event->mWsaBuf ), 1,
@@ -85,24 +92,32 @@ void on_read( SP_TestClient * client, SP_TestEvent * event, int bytesTransferred
 	}
 }
 
-void on_write( SP_TestClient * client, SP_TestEvent * event, int bytesTransferred )
+void on_write( SP_TestClient * client, SP_TestEvent * event )
 {
 	if( client->mSendMsgs < gMsgs ) {
 		client->mSendMsgs++;
+
+		char buffer[ 4096 ] = { 0 };
 		if( client->mSendMsgs >= gMsgs ) {
-			snprintf( event->mBuffer, sizeof( event->mBuffer ), "quit\n" );
+			snprintf( buffer, sizeof( buffer ), "quit\n" );
 		} else {
-			snprintf( event->mBuffer, sizeof( event->mBuffer ),
+			snprintf( buffer, sizeof( buffer ),
 				"mail #%d, It's good to see how people hire; "
 				"that tells us how to market ourselves to them.\n", client->mSendMsgs );
 		}
 
-		event->mType = SP_TestEvent::eEventSend;
-		memset( &( event->mOverlapped ), 0, sizeof( OVERLAPPED ) );
-		event->mWsaBuf.buf = event->mBuffer;
-		event->mWsaBuf.len = strlen( event->mBuffer );
+		int bytesTransferred = send( (SOCKET)client->mFd, buffer, strlen( buffer ), 0 );
+		if( bytesTransferred <= 0 ) {
+			close_client( client );
+			return;
+		}
 
 		DWORD sendBytes = 0;
+
+		event->mType = SP_TestEvent::eEventSend;
+		memset( &( event->mOverlapped ), 0, sizeof( OVERLAPPED ) );
+		event->mWsaBuf.buf = NULL;
+		event->mWsaBuf.len = 0;
 
 		if( SOCKET_ERROR == WSASend( (SOCKET)client->mFd, &( event->mWsaBuf ), 1,
 				&sendBytes, 0,	&( event->mOverlapped ), NULL ) ) {
@@ -131,18 +146,13 @@ void eventLoop( HANDLE hIocp )
 		return;
 	}
 
-	if( 0 == bytesTransferred ) {
-		close_client( client );
-		return;
-	}
-
 	if( SP_TestEvent::eEventRecv == event->mType ) {
-		on_read( client, event, bytesTransferred );
+		on_read( client, event );
 		return;
 	}
 
 	if( SP_TestEvent::eEventSend == event->mType ) {
-		on_write( client, event, bytesTransferred );
+		on_write( client, event );
 		return;
 	}
 }
@@ -229,8 +239,8 @@ int main( int argc, char * argv[] )
 
 	for( i = 0; i < gClients; i++ ) {
 		SP_TestClient * client = clientList + i;
-		on_read( client, &( client->mRecvEvent ), 0 );
-		on_write( client, &( client->mSendEvent ), 0 );
+		on_read( client, &( client->mRecvEvent ) );
+		on_write( client, &( client->mSendEvent ) );
 	}
 
 	printf( "\n" );
