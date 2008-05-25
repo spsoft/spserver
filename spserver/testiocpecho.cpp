@@ -24,6 +24,7 @@
 
 #pragma comment(lib,"ws2_32")
 #pragma comment(lib,"mswsock")
+#pragma comment(lib,"advapi32")
 
 class SP_EchoHandler : public SP_Handler {
 public:
@@ -79,6 +80,34 @@ public:
 	}
 };
 
+void IncreaseConnections()
+{
+	SetProcessWorkingSetSize( GetCurrentProcess(),
+			10 * 1024 * 1024, 400 * 1024 * 1024 );
+
+	DWORD minSize = 0, maxSize = 0;
+	GetProcessWorkingSetSize( GetCurrentProcess(), &minSize, &maxSize );
+	printf( "WorkingSetSize min %d(%d), max %d(%d)\n",
+			minSize, minSize / 4096, maxSize, maxSize / 4096 );
+
+	HKEY hKey;
+
+	/* http://support.microsoft.com/default.aspx?scid=kb;EN-US;314053 */
+	printf("Writing to registry... \n");
+	if( RegOpenKeyEx( HKEY_LOCAL_MACHINE,
+			"SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Winsock", 0,
+			KEY_WRITE, &hKey ) != ERROR_SUCCESS ) {
+		printf( "RegOpenKeyEx fail, errno %d\n", GetLastError() );
+	} else {
+		DWORD dwCon = 0xfffffe;
+		if( RegSetValueEx( hKey, "TcpNumConnections", 0, REG_DWORD,
+				(const BYTE *) &dwCon, sizeof(dwCon) ) != ERROR_SUCCESS ) {
+			printf( "RegSetValueEx fail, errno %d\n", GetLastError() );
+		}
+		RegCloseKey( hKey );
+	}
+}
+
 int main(void)
 {
 	int port = 3333;
@@ -86,6 +115,9 @@ int main(void)
 	_CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
 
 	if( 0 != sp_initsock() ) assert( 0 );
+
+	//Warning: This modifies your operating system. Use it at your own risk.
+	//IncreaseConnections();
 
 	SP_IocpServer server( "", port, new SP_EchoHandlerFactory() );
 	server.setTimeout( 0 );

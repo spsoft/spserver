@@ -16,6 +16,7 @@
 #include "spexecutor.hpp"
 #include "spioutils.hpp"
 #include "spmsgblock.hpp"
+#include "spwin32buffer.hpp"
 
 BOOL SP_IocpEventCallback :: addSession( SP_IocpEventArg * eventArg, HANDLE client, SP_Session * session )
 {
@@ -72,8 +73,8 @@ BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 
 		memset( &( iocpSession->mRecvEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
 		iocpSession->mRecvEvent.mType = SP_IocpEvent_t::eEventRecv;
-		iocpSession->mRecvEvent.mWsaBuf[0].buf = iocpSession->mBuffer;
-		iocpSession->mRecvEvent.mWsaBuf[0].len = sizeof( iocpSession->mBuffer );
+		iocpSession->mRecvEvent.mWsaBuf[0].buf = NULL;
+		iocpSession->mRecvEvent.mWsaBuf[0].len = 0;
 
 		DWORD recvBytes = 0, flags = 0;
 		if( SOCKET_ERROR == WSARecv( (SOCKET)iocpSession->mHandle, iocpSession->mRecvEvent.mWsaBuf, 1,
@@ -112,7 +113,7 @@ BOOL SP_IocpEventCallback :: onRecv( SP_IocpSession_t * iocpSession, int bytesTr
 
 	session->setReading( 0 );
 
-	session->getInBuffer()->append( iocpSession->mBuffer, bytesTransferred );
+	spwin32buffer_read( session->getInBuffer()->mBuffer, (int)iocpSession->mHandle, -1 );
 
 	addRecv( session );
 
@@ -488,13 +489,6 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 		return TRUE;
 	} else {
 		if( NULL == iocpSession ) return TRUE;
-
-		if( bytesTransferred == 0 )	{
-			if( NULL != iocpSession ) {
-				SP_IocpEventHelper::doClose( iocpSession->mSession );
-			}
-			return TRUE;
-		}
 
 		SP_IocpEvent_t * iocpEvent = 
 				CONTAINING_RECORD( overlapped, SP_IocpEvent_t, mOverlapped );
