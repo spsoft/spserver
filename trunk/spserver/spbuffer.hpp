@@ -39,6 +39,7 @@ private:
 	sp_evbuffer_t * mBuffer;
 
 	friend class SP_IOChannel;
+	friend class SP_IocpEventCallback;
 };
 
 #endif

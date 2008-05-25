@@ -46,8 +46,6 @@ typedef struct tagSP_IocpSession {
 	SP_IocpEvent_t mRecvEvent;
 	SP_IocpEvent_t mSendEvent;
 	OVERLAPPED mFreeEvent;
-
-	char mBuffer[ 4096 ];
 } SP_IocpSession_t;
 
 class SP_IocpEventCallback {

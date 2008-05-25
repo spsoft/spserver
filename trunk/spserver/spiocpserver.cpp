@@ -143,6 +143,7 @@ sp_thread_result_t SP_THREAD_CALL SP_IocpServer :: acceptThread( void * arg )
 	for( ; ; ) {
 		acceptArg->mClientSocket = (HANDLE)WSASocket( AF_INET, SOCK_STREAM,
 				IPPROTO_IP, NULL, 0, WSA_FLAG_OVERLAPPED );
+		SP_IOUtils::setNonblock( (int)acceptArg->mClientSocket );
 		memset( &( acceptArg->mOverlapped ), 0, sizeof( OVERLAPPED ) );
 
 		int ret = AcceptEx( (SOCKET)acceptArg->mListenSocket, (SOCKET)acceptArg->mClientSocket,
@@ -151,10 +152,11 @@ sp_thread_result_t SP_THREAD_CALL SP_IocpServer :: acceptThread( void * arg )
 
 		if( ret == SOCKET_ERROR && (ERROR_IO_PENDING != WSAGetLastError()) ) {
 			sp_syslog( LOG_ERR, "AcceptEx() fail, errno %d", WSAGetLastError() );
+			closesocket( (int)acceptArg->mClientSocket );
+		} else {
+			WaitForSingleObject( acceptArg->mAcceptEvent, INFINITE );
+			ResetEvent( acceptArg->mAcceptEvent );
 		}
-
-		WaitForSingleObject( acceptArg->mAcceptEvent, INFINITE );
-		ResetEvent( acceptArg->mAcceptEvent );
 	}
 
 	return 0;
