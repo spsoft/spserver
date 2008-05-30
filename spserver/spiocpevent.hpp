@@ -14,10 +14,9 @@ typedef struct tagSP_IocpEvent {
 
 	OVERLAPPED mOverlapped;
 	int mType;
-	union {
-		WSABUF mWsaBuf[ SP_IOCP_MAX_IOV ];
-		void ( * mOnTimer ) ( void * );
-	};
+	WSABUF mWsaBuf;
+
+	void ( * mOnTimer ) ( void * );
 
 	int mHeapIndex;
 	struct timeval mTimeout;

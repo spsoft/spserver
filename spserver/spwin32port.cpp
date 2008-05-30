@@ -14,7 +14,7 @@
 /* Windows doesn't have writev() but does have WSASend */
 int spwin32_writev(SOCKET sock, const struct iovec *vector, DWORD count)
 {
-	DWORD sent;
+	DWORD sent = -1;
 	WSASend(sock, (LPWSABUF)vector, count, &sent, 0, NULL, NULL);
 	return sent;
 }
