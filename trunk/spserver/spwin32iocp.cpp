@@ -4,6 +4,7 @@
  */
 
 #include <assert.h>
+#include <time.h>
 
 #include "spwin32iocp.hpp"
 
@@ -68,17 +69,18 @@ BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 {
 	BOOL ret = true;
 
-	if( 0 == session->getReading() ) {
+	if( 0 == session->getReading() && SP_Session::eNormal == session->getStatus() ) {
 		SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
+		SP_IocpEvent_t * recvEvent = &( iocpSession->mRecvEvent );
 
-		memset( &( iocpSession->mRecvEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
-		iocpSession->mRecvEvent.mType = SP_IocpEvent_t::eEventRecv;
-		iocpSession->mRecvEvent.mWsaBuf[0].buf = NULL;
-		iocpSession->mRecvEvent.mWsaBuf[0].len = 0;
+		memset( &( recvEvent->mOverlapped ), 0, sizeof( OVERLAPPED ) );
+		recvEvent->mType = SP_IocpEvent_t::eEventRecv;
+		recvEvent->mWsaBuf.buf = NULL;
+		recvEvent->mWsaBuf.len = 0;
 
 		DWORD recvBytes = 0, flags = 0;
-		if( SOCKET_ERROR == WSARecv( (SOCKET)iocpSession->mHandle, iocpSession->mRecvEvent.mWsaBuf, 1,
-				&recvBytes, &flags, &( iocpSession->mRecvEvent.mOverlapped ), NULL ) ) {
+		if( SOCKET_ERROR == WSARecv( (SOCKET)iocpSession->mHandle, &(recvEvent->mWsaBuf), 1,
+				&recvBytes, &flags, &( recvEvent->mOverlapped ), NULL ) ) {
 			if( ERROR_IO_PENDING != WSAGetLastError() ) {
 				sp_syslog( LOG_ERR, "WSARecv fail, errno %d", WSAGetLastError() );
 				ret = FALSE;
@@ -91,7 +93,6 @@ BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 			SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 
 			if( eventArg->getTimeout() > 0 ) {
-				SP_IocpEvent_t * recvEvent = &( iocpSession->mRecvEvent );
 				sp_gettimeofday( &( recvEvent->mTimeout ), NULL );
 				recvEvent->mTimeout.tv_sec += eventArg->getTimeout();
 				eventArg->getEventHeap()->push( recvEvent );
@@ -102,104 +103,66 @@ BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 	return ret;
 }
 
-BOOL SP_IocpEventCallback :: onRecv( SP_IocpSession_t * iocpSession, int bytesTransferred )
+void SP_IocpEventCallback :: onRecv( SP_IocpSession_t * iocpSession )
 {
 	SP_IocpEvent_t * recvEvent = &( iocpSession->mRecvEvent );
-
 	SP_Session * session = iocpSession->mSession;
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
+
+	SP_Sid_t sid = session->getSid();
 
 	eventArg->getEventHeap()->erase( recvEvent );
 
 	session->setReading( 0 );
 
-	spwin32buffer_read( session->getInBuffer()->mBuffer, (int)iocpSession->mHandle, -1 );
+	int len = spwin32buffer_read( session->getInBuffer()->mBuffer,
+			(int)iocpSession->mHandle, -1 );
 
-	addRecv( session );
+	if( len > 0 ) {
+		if( 0 == session->getRunning() ) {
+			SP_IocpEventHelper::doDecodeForWork( session );
+		}
+	} else if( 0 == len ) {
+		if( 0 == session->getRunning() ) {
+			SP_IocpEventHelper::doClose( session );
+		} else {
+			sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session close later",
+					sid.mKey, sid.mSeq );
+		}
+	} else {
+		int ret = -1, lastError = WSAGetLastError();
 
-	SP_IocpEventHelper::doDecodeForWork( session );
+		if( WSAEWOULDBLOCK == lastError && addRecv( session ) ) ret = 0;
 
-	return TRUE;
+		if( 0 != ret ) {
+			if( 0 == session->getRunning() ) {
+				sp_syslog( LOG_NOTICE, "session(%d.%d) read error, errno %d, status %d",
+					sid.mKey, sid.mSeq, lastError, session->getStatus() );
+				SP_IocpEventHelper::doError( session );
+			} else {
+				sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later",
+						sid.mKey, sid.mSeq );
+			}
+		}
+	}
 }
 
 BOOL SP_IocpEventCallback :: addSend( SP_Session * session )
 {
-	BOOL ret = TRUE;
-
 	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
-
-	if( 0 == session->getWriting() ) ret = transmit( iocpSession, 0 );
-	
-	SP_IocpEventHelper::doDecodeForWork( session );
-
-	return ret;
-}
-
-BOOL SP_IocpEventCallback :: transmit( SP_IocpSession_t * iocpSession, int bytesTransferred )
-{
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
-	SP_Session * session = iocpSession->mSession;
 	SP_IocpEvent_t * sendEvent = &( iocpSession->mSendEvent );
 
-	SP_ArrayList * outList = session->getOutList();
-	size_t outOffset = session->getOutOffset() + bytesTransferred;
-
-	for( ; outList->getCount() > 0; ) {
-		SP_Message * msg = (SP_Message*)outList->getItem( 0 );
-		if( outOffset >= msg->getTotalSize() ) {
-			msg = (SP_Message*)outList->takeItem( 0 );
-			outOffset = outOffset - msg->getTotalSize();
-
-			int index = msg->getToList()->find( session->getSid() );
-			if( index >= 0 ) msg->getToList()->take( index );
-			msg->getSuccess()->add( session->getSid() );
-
-			if( msg->getToList()->getCount() <= 0 ) {
-				eventArg->getOutputResultQueue()->push( msg );
-			}
-		} else {
-			break;
-		}
-	}
-
-	session->setOutOffset( outOffset );
-
-	WSABUF * iovArray = sendEvent->mWsaBuf;
-
-	int iovSize = 0;
-
-	for( int i = 0; i < outList->getCount() && iovSize < SP_IocpEvent_t::SP_IOCP_MAX_IOV; i++ ) {
-		SP_Message * msg = (SP_Message*)outList->getItem( i );
-
-		if( outOffset >= msg->getMsg()->getSize() ) {
-			outOffset -= msg->getMsg()->getSize();
-		} else {
-			iovArray[ iovSize ].buf = (char*)msg->getMsg()->getBuffer() + outOffset;
-			iovArray[ iovSize++ ].len = msg->getMsg()->getSize() - outOffset;
-			outOffset = 0;
-		}
-
-		SP_MsgBlockList * blockList = msg->getFollowBlockList();
-		for( int j = 0; j < blockList->getCount() && iovSize < SP_IocpEvent_t::SP_IOCP_MAX_IOV; j++ ) {
-			SP_MsgBlock * block = (SP_MsgBlock*)blockList->getItem( j );
-
-			if( outOffset >= block->getSize() ) {
-				outOffset -= block->getSize();
-			} else {
-				iovArray[ iovSize ].buf = (char*)block->getData() + outOffset;
-				iovArray[ iovSize++ ].len = block->getSize() - outOffset;
-				outOffset = 0;
-			}
-		}
-	}
-
-	if( session->getOutList()->getCount() > 0 )	{
+	if( 0 == session->getWriting() ) {
 		memset( &( sendEvent->mOverlapped ), 0, sizeof( OVERLAPPED ) );
-		
-		DWORD sendBytes;
+		sendEvent->mType = SP_IocpEvent_t::eEventSend;
+		sendEvent->mWsaBuf.buf = NULL;
+		sendEvent->mWsaBuf.len = 0;
 
-		if( SOCKET_ERROR == WSASend( (SOCKET)iocpSession->mHandle, sendEvent->mWsaBuf, iovSize,
-			&sendBytes, 0,	&( sendEvent->mOverlapped ), NULL ) ) {
+		DWORD sendBytes = 0;
+
+		if( SOCKET_ERROR == WSASend( (SOCKET)iocpSession->mHandle, &( sendEvent->mWsaBuf ), 1,
+				&sendBytes, 0,	&( sendEvent->mOverlapped ), NULL ) ) {
 			if( ERROR_IO_PENDING != WSAGetLastError() ) {
 				sp_syslog( LOG_ERR, "WSASend fail, errno %d", WSAGetLastError() );
 				return FALSE;
@@ -207,55 +170,77 @@ BOOL SP_IocpEventCallback :: transmit( SP_IocpSession_t * iocpSession, int bytes
 		}
 
 		if( eventArg->getTimeout() > 0 ) {
-			SP_IocpEvent_t * sendEvent = &( iocpSession->mSendEvent );
 			sp_gettimeofday( &( sendEvent->mTimeout ), NULL );
 			sendEvent->mTimeout.tv_sec += eventArg->getTimeout();
 			eventArg->getEventHeap()->push( sendEvent );
 		}
+
 		session->setWriting( 1 );
 	}
 
 	return TRUE;
 }
 
-BOOL SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession, int bytesTransferred )
+void SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession )
 {
-	BOOL ret = TRUE;
-
+	SP_IocpEvent_t * recvEvent = &( iocpSession->mRecvEvent );
 	SP_Session * session = iocpSession->mSession;
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 
-	SP_IocpEvent_t * sendEvent = &( iocpSession->mSendEvent );
+	session->setWriting( 0 );
 
 	SP_Sid_t sid = session->getSid();
 
-	eventArg->getEventHeap()->erase( sendEvent );
+	int ret = 0;
 
-	session->setWriting( 0 );
+	if( session->getOutList()->getCount() > 0 ) {
+		int len = SP_IocpEventHelper::transmit( session );
 
-	if( 0 == bytesTransferred ) {
-		if( 0 == session->getRunning() ) {
-			sp_syslog( LOG_NOTICE, "session(%d.%d) write error", sid.mKey, sid.mSeq );
-			SP_IocpEventHelper::doError( session );
+		if( len > 0 ) {
+			if( session->getOutList()->getCount() > 0 ) {
+				if( ! addSend( session ) ) {
+					if( 0 == session->getRunning() ) {
+						ret = -1;
+						SP_IocpEventHelper::doError( session );
+					}
+				}
+			}
 		} else {
-			session->setStatus( SP_Session::eWouldExit );
-		}
-	} else {
-		ret = transmit( iocpSession, bytesTransferred );
-		
-		SP_IocpEventHelper::doDecodeForWork( session );	
+			ret = -1;
 
-		if( session->getOutList()->getCount() <= 0 ) {
-			if( SP_Session::eExit == session->getStatus() ) {
+			int lastError = WSAGetLastError();
+
+			if( WSAEWOULDBLOCK == lastError && addSend( session ) ) ret = 0;
+
+			if( 0 != ret ) {
 				if( 0 == session->getRunning() ) {
-					SP_IocpEventHelper::doClose( session );
-					return TRUE;
+					sp_syslog( LOG_NOTICE, "session(%d.%d) write error, errno %d, status %d, count %d",
+							sid.mKey, sid.mSeq, lastError, session->getStatus(), session->getOutList()->getCount() );
+					SP_IocpEventHelper::doError( session );
+				} else {
+					sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later, errno [%d]",
+							sid.mKey, sid.mSeq, errno );
 				}
 			}
 		}
 	}
 
-	return ret;
+	if( 0 == ret && session->getOutList()->getCount() <= 0 ) {
+		if( SP_Session::eExit == session->getStatus() ) {
+			ret = -1;
+			if( 0 == session->getRunning() ) {
+				//sp_syslog( LOG_NOTICE, "session(%d.%d) normal exit", sid.mKey, sid.mSeq );
+				SP_IocpEventHelper::doClose( session );
+			} else {
+				sp_syslog( LOG_NOTICE, "session(%d.%d) busy, terminate session later",
+						sid.mKey, sid.mSeq );
+			}
+		}
+	}
+
+	if( 0 == ret && 0 == session->getRunning() ) {
+		SP_IocpEventHelper::doDecodeForWork( session );
+	}
 }
 
 BOOL SP_IocpEventCallback :: onAccept( SP_IocpAcceptArg_t * acceptArg )
@@ -412,7 +397,9 @@ void SP_IocpEventCallback :: onTimeout( SP_IocpEventArg * eventArg )
 
 				assert( NULL != iocpSession );
 
-				SP_IocpEventHelper::doTimeout( iocpSession->mSession );
+				if( 0 == iocpSession->mSession->getRunning() ) {
+					SP_IocpEventHelper::doTimeout( iocpSession->mSession );
+				}
 			}
 		} else {
 			break;
@@ -450,17 +437,19 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 			// lastError continas the reason for failure
 
 			if( NULL != iocpSession ) {
-				SP_IocpEventHelper::doClose( iocpSession->mSession );
+				if( 0 == iocpSession->mSession->getRunning() ) {
+					SP_IocpEventHelper::doClose( iocpSession->mSession );
+				}
 			}
 
-			if( ERROR_NETNAME_DELETED == WSAGetLastError() // client abort
-					|| ERROR_OPERATION_ABORTED == WSAGetLastError() ) {
+			if( ERROR_NETNAME_DELETED == lastError // client abort
+					|| ERROR_OPERATION_ABORTED == lastError ) {
 				return TRUE;
 			} else {
 				char errmsg[ 512 ] = { 0 };
-				spwin32_strerror( WSAGetLastError(), errmsg, sizeof( errmsg ) );
+				spwin32_strerror( lastError, errmsg, sizeof( errmsg ) );
 				sp_syslog( LOG_ERR, "GetQueuedCompletionStatus fail, errno %d, %s",
-						WSAGetLastError(), errmsg );
+						lastError, errmsg );
 				return FALSE;
 			}
 		} else {
@@ -484,6 +473,11 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 	} else if( eKeyFree == completionKey ) {
 		assert( NULL == iocpSession );
 		iocpSession = CONTAINING_RECORD( overlapped, SP_IocpSession_t, mFreeEvent );
+
+		SP_Sid_t sid = iocpSession->mSession->getSid();
+		sp_syslog( LOG_DEBUG, "session(%d,%d) clean, online %d",
+				sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
+
 		delete iocpSession->mSession;
 		free( iocpSession );
 		return TRUE;
@@ -496,16 +490,12 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 		eventArg->getEventHeap()->erase( iocpEvent );
 
 		if( SP_IocpEvent_t::eEventRecv == iocpEvent->mType ) {
-			if( ! onRecv( iocpSession, bytesTransferred ) ) {
-				SP_IocpEventHelper::doError( iocpSession->mSession );
-			}
+			onRecv( iocpSession );
 			return TRUE;
 		}
 
 		if( SP_IocpEvent_t::eEventSend == iocpEvent->mType ) {
-			if( ! onSend( iocpSession, bytesTransferred ) ) {
-				SP_IocpEventHelper::doError( iocpSession->mSession );
-			}
+			onSend( iocpSession );
 			return TRUE;
 		}
 	}
@@ -541,16 +531,14 @@ DWORD SP_IocpEventHelper :: timeoutNext( SP_IocpEventHeap * eventHeap )
 
 void SP_IocpEventHelper :: doDecodeForWork( SP_Session * session )
 {
-	if( 0 == session->getRunning() ) {
-		SP_MsgDecoder * decoder = session->getRequest()->getMsgDecoder();
-		int ret = decoder->decode( session->getInBuffer() );
-		if( SP_MsgDecoder::eOK == ret ) {
-			doWork( session );
-		} else if( SP_MsgDecoder::eMoreData != ret ) {
-			doError( session );
-		} else {
-			assert( ret == SP_MsgDecoder::eMoreData );
-		}
+	SP_MsgDecoder * decoder = session->getRequest()->getMsgDecoder();
+	int ret = decoder->decode( session->getInBuffer() );
+	if( SP_MsgDecoder::eOK == ret ) {
+		doWork( session );
+	} else if( SP_MsgDecoder::eMoreData != ret ) {
+		doError( session );
+	} else {
+		assert( ret == SP_MsgDecoder::eMoreData );
 	}
 }
 
@@ -589,7 +577,6 @@ void SP_IocpEventHelper :: worker( void * arg )
 	eventArg->getResponseQueue()->push( response );
 }
 
-
 void SP_IocpEventHelper :: doClose( SP_Session * session )
 {
 	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
@@ -597,19 +584,15 @@ void SP_IocpEventHelper :: doClose( SP_Session * session )
 
 	SP_Sid_t sid = session->getSid();
 
-	if( 0 == session->getRunning() ) {
-		session->setRunning( 1 );
+	session->setRunning( 1 );
 
-		// remove session from SessionManager, the other threads will ignore this session
-		eventArg->getSessionManager()->remove( sid.mKey );
+	// remove session from SessionManager, the other threads will ignore this session
+	eventArg->getSessionManager()->remove( sid.mKey );
 
-		eventArg->getEventHeap()->erase( &( iocpSession->mRecvEvent ) );
-		eventArg->getEventHeap()->erase( &( iocpSession->mSendEvent ) );
+	eventArg->getEventHeap()->erase( &( iocpSession->mRecvEvent ) );
+	eventArg->getEventHeap()->erase( &( iocpSession->mSendEvent ) );
 
-		eventArg->getInputResultQueue()->push( new SP_SimpleTask( close, session, 1 ) );
-	} else {
-		sp_syslog( LOG_DEBUG, "DEBUG: session(%d,%d) is busy", sid.mKey, sid.mSeq );
-	}
+	eventArg->getInputResultQueue()->push( new SP_SimpleTask( close, session, 1 ) );
 }
 
 void SP_IocpEventHelper :: close( void * arg )
@@ -623,6 +606,8 @@ void SP_IocpEventHelper :: close( void * arg )
 	//sp_syslog( LOG_NOTICE, "session(%d.%d) close, disconnect", sid.mKey, sid.mSeq );
 
 	session->getHandler()->close();
+
+	SP_IOUtils::setBlock( (SOCKET)iocpSession->mHandle );
 
 	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle ) ) {
 		if( ERROR_IO_PENDING != WSAGetLastError () ) {
@@ -638,7 +623,8 @@ void SP_IocpEventHelper :: close( void * arg )
 	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
 			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
 
-	sp_syslog( LOG_NOTICE, "session(%d.%d) close, exit", sid.mKey, sid.mSeq );
+	sp_syslog( LOG_NOTICE, "session(%d.%d) close, online %d",
+			sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
 }
 
 void SP_IocpEventHelper :: doError( SP_Session * session )
@@ -647,8 +633,6 @@ void SP_IocpEventHelper :: doError( SP_Session * session )
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 
 	session->setRunning( 1 );
-
-	sp_close( (SOCKET)iocpSession->mHandle );
 
 	SP_Sid_t sid = session->getSid();
 
@@ -690,6 +674,18 @@ void SP_IocpEventHelper :: error( void * arg )
 	// the other threads will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
 
+	SP_IOUtils::setBlock( (SOCKET)iocpSession->mHandle );
+
+	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle ) ) {
+		if( ERROR_IO_PENDING != WSAGetLastError () ) {
+			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
+		}
+	}
+
+	if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
+		sp_syslog( LOG_ERR, "close(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
+	}
+
 	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
 	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
 			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
@@ -703,8 +699,6 @@ void SP_IocpEventHelper :: doTimeout( SP_Session * session )
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 
 	session->setRunning( 1 );
-
-	sp_close( (SOCKET)iocpSession->mHandle );
 
 	SP_Sid_t sid = session->getSid();
 
@@ -746,6 +740,18 @@ void SP_IocpEventHelper :: timeout( void * arg )
 	// the other threads will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
 
+	SP_IOUtils::setBlock( (SOCKET)iocpSession->mHandle );
+
+	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle ) ) {
+		if( ERROR_IO_PENDING != WSAGetLastError () ) {
+			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
+		}
+	}
+
+	if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
+		sp_syslog( LOG_ERR, "close(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
+	}
+
 	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
 	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
 			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
@@ -781,3 +787,75 @@ void SP_IocpEventHelper :: doCompletion( SP_IocpEventArg * eventArg, SP_Message 
 {
 	eventArg->getOutputResultQueue()->push( msg );
 }
+
+int SP_IocpEventHelper :: transmit( SP_Session * session )
+{
+	const int SP_MAX_IOV = MSG_MAXIOVLEN;
+
+	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
+	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
+
+	SP_ArrayList * outList = session->getOutList();
+	size_t outOffset = session->getOutOffset();
+
+	struct iovec iovArray[ SP_MAX_IOV ];
+	memset( iovArray, 0, sizeof( iovArray ) );
+
+	int iovSize = 0;
+
+	for( int i = 0; i < outList->getCount() && iovSize < SP_MAX_IOV; i++ ) {
+		SP_Message * msg = (SP_Message*)outList->getItem( i );
+
+		if( outOffset >= msg->getMsg()->getSize() ) {
+			outOffset -= msg->getMsg()->getSize();
+		} else {
+			iovArray[ iovSize ].iov_base = (char*)msg->getMsg()->getBuffer() + outOffset;
+			iovArray[ iovSize++ ].iov_len = msg->getMsg()->getSize() - outOffset;
+			outOffset = 0;
+		}
+
+		SP_MsgBlockList * blockList = msg->getFollowBlockList();
+		for( int j = 0; j < blockList->getCount() && iovSize < SP_MAX_IOV; j++ ) {
+			SP_MsgBlock * block = (SP_MsgBlock*)blockList->getItem( j );
+
+			if( outOffset >= block->getSize() ) {
+				outOffset -= block->getSize();
+			} else {
+				iovArray[ iovSize ].iov_base = (char*)block->getData() + outOffset;
+				iovArray[ iovSize++ ].iov_len = block->getSize() - outOffset;
+				outOffset = 0;
+			}
+		}
+	}
+
+	int len = spwin32_writev( (SOCKET)iocpSession->mHandle, iovArray, iovSize );
+
+	if( len > 0 ) {
+		outOffset = session->getOutOffset() + len;
+
+		for( ; outList->getCount() > 0; ) {
+			SP_Message * msg = (SP_Message*)outList->getItem( 0 );
+			if( outOffset >= msg->getTotalSize() ) {
+				msg = (SP_Message*)outList->takeItem( 0 );
+				outOffset = outOffset - msg->getTotalSize();
+
+				int index = msg->getToList()->find( session->getSid() );
+				if( index >= 0 ) msg->getToList()->take( index );
+				msg->getSuccess()->add( session->getSid() );
+
+				if( msg->getToList()->getCount() <= 0 ) {
+					eventArg->getOutputResultQueue()->push( msg );
+				}
+			} else {
+				break;
+			}
+		}
+
+		session->setOutOffset( outOffset );
+	}
+
+	if( len > 0 && outList->getCount() > 0 ) transmit( session );
+
+	return len;
+}
+

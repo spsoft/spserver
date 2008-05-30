@@ -57,16 +57,14 @@ public:
 	static BOOL addRecv( SP_Session * session );
 	static BOOL addSend( SP_Session * session );
 
-	static BOOL onRecv( SP_IocpSession_t * iocpSession, int bytesTransferred );
-	static BOOL onSend( SP_IocpSession_t * iocpSession, int bytesTransferred );
+	static void onRecv( SP_IocpSession_t * iocpSession );
+	static void onSend( SP_IocpSession_t * iocpSession );
 	static BOOL onAccept( SP_IocpAcceptArg_t * acceptArg );
 	static void onResponse( void * queueData, void * arg );
 
 	static void onTimeout( SP_IocpEventArg * eventArg );
 	
 	static BOOL eventLoop( SP_IocpEventArg * eventArg, SP_IocpAcceptArg_t * acceptArg );
-
-	static BOOL transmit( SP_IocpSession_t * iocpSession, int bytesTransferred );
 
 private:
 	SP_IocpEventCallback();
@@ -91,6 +89,8 @@ public:
 
 	static void doClose( SP_Session * session );
 	static void close( void * arg );
+
+	static int transmit( SP_Session * session );
 
 	static void doDecodeForWork( SP_Session * session );
 
