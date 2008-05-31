@@ -70,6 +70,8 @@ BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 	BOOL ret = true;
 
 	if( 0 == session->getReading() && SP_Session::eNormal == session->getStatus() ) {
+		SP_Sid_t sid = session->getSid();
+
 		SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
 		SP_IocpEvent_t * recvEvent = &( iocpSession->mRecvEvent );
 
@@ -82,7 +84,8 @@ BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 		if( SOCKET_ERROR == WSARecv( (SOCKET)iocpSession->mHandle, &(recvEvent->mWsaBuf), 1,
 				&recvBytes, &flags, &( recvEvent->mOverlapped ), NULL ) ) {
 			if( ERROR_IO_PENDING != WSAGetLastError() ) {
-				sp_syslog( LOG_ERR, "WSARecv fail, errno %d", WSAGetLastError() );
+				sp_syslog( LOG_ERR, "session(%d.%d) WSARecv fail, errno %d",
+						sid.mKey, sid.mSeq, WSAGetLastError() );
 				ret = FALSE;
 			}
 		}
@@ -152,6 +155,7 @@ BOOL SP_IocpEventCallback :: addSend( SP_Session * session )
 	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 	SP_IocpEvent_t * sendEvent = &( iocpSession->mSendEvent );
+	SP_Sid_t sid = session->getSid();
 
 	if( 0 == session->getWriting() ) {
 		memset( &( sendEvent->mOverlapped ), 0, sizeof( OVERLAPPED ) );
@@ -164,7 +168,8 @@ BOOL SP_IocpEventCallback :: addSend( SP_Session * session )
 		if( SOCKET_ERROR == WSASend( (SOCKET)iocpSession->mHandle, &( sendEvent->mWsaBuf ), 1,
 				&sendBytes, 0,	&( sendEvent->mOverlapped ), NULL ) ) {
 			if( ERROR_IO_PENDING != WSAGetLastError() ) {
-				sp_syslog( LOG_ERR, "WSASend fail, errno %d", WSAGetLastError() );
+				sp_syslog( LOG_ERR, "session(%d.%d) WSASend fail, errno %d",
+						sid.mKey, sid.mSeq, WSAGetLastError() );
 				return FALSE;
 			}
 		}
@@ -316,12 +321,16 @@ void SP_IocpEventCallback :: onResponse( void * queueData, void * arg )
 			}
 
 			if( SP_Session::eNormal == session->getStatus() ) {
-				addRecv( session );
+				if( addRecv( session ) ) {
+					if( 0 == session->getRunning() ) {
+						SP_IocpEventHelper::doDecodeForWork( session );
+					}
+				} else {
+					if( 0 == session->getRunning() ) {
+						SP_IocpEventHelper::doError( session );
+					}
+				}
 			}
-
-			// always add a write event for sender, 
-			// so the pending input can be processed in onWrite
-			addSend( session );
 		} else {
 			sp_syslog( LOG_WARNING, "session(%d.%d) invalid, unknown FROM",
 					fromSid.mKey, fromSid.mSeq );
@@ -344,8 +353,13 @@ void SP_IocpEventCallback :: onResponse( void * queueData, void * arg )
 						msg->getFailure()->add( sid );
 						sp_syslog( LOG_WARNING, "session(%d.%d) would exit, invalid TO", sid.mKey, sid.mSeq );
 					} else {
-						session->getOutList()->append( msg );
-						addSend( session );
+						if( addSend( session ) ) {
+							session->getOutList()->append( msg );
+						} else {
+							if( 0 == session->getRunning() ) {
+								SP_IocpEventHelper::doError( session );
+							}
+						}
 					}
 				} else {
 					sidList->take( i );
@@ -474,9 +488,9 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 		assert( NULL == iocpSession );
 		iocpSession = CONTAINING_RECORD( overlapped, SP_IocpSession_t, mFreeEvent );
 
-		SP_Sid_t sid = iocpSession->mSession->getSid();
-		sp_syslog( LOG_DEBUG, "session(%d,%d) clean, online %d",
-				sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
+		//SP_Sid_t sid = iocpSession->mSession->getSid();
+		//sp_syslog( LOG_DEBUG, "session(%d.%d) clean, online %d",
+				//sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
 
 		delete iocpSession->mSession;
 		free( iocpSession );
