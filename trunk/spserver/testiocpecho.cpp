@@ -122,6 +122,7 @@ int main(void)
 	SP_IocpServer server( "", port, new SP_EchoHandlerFactory() );
 	server.setTimeout( 0 );
 	server.setMaxThreads( 4 );
+	server.setReqQueueSize( 10000, "Byebye\r\n" );
 	server.setMaxConnections( 10000 );
 	server.runForever();
 
