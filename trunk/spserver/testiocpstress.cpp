@@ -17,12 +17,24 @@
 
 #pragma comment(lib,"ws2_32")
 #pragma comment(lib,"mswsock")
+#pragma comment(lib,"advapi32")
 
 static const char * gHost = "127.0.0.1";
 static int gPort = 3333;
 static int gMsgs = 10;
 static int gClients = 10;
 
+struct SP_TestStat {
+	int mRecvFail;
+	int mWSARecvFail;
+
+	int mSendFail;
+	int mWSASendFail;
+
+	int mGQCSFail;
+};
+
+static struct SP_TestStat gStat;
 static time_t gStartTime = 0;
 
 struct SP_TestEvent {
@@ -69,6 +81,10 @@ void on_read( SP_TestClient * client, SP_TestEvent * event )
 	int bytesTransferred = recv( (int)client->mFd, buffer, sizeof( buffer ), 0 );
 
 	if( bytesTransferred <= 0 ) {
+		if( bytesTransferred < 0 ) {
+			printf( "recv fail, errno %d\n", WSAGetLastError() );
+			gStat.mRecvFail++;
+		}
 		close_client( client );
 		return;
 	}
@@ -86,6 +102,7 @@ void on_read( SP_TestClient * client, SP_TestEvent * event )
 	if( SOCKET_ERROR == WSARecv( (SOCKET)client->mFd, &( event->mWsaBuf ), 1,
 			&recvBytes, &flags, &( event->mOverlapped ), NULL ) ) {
 		if( ERROR_IO_PENDING != WSAGetLastError() ) {
+			gStat.mWSARecvFail++;
 			printf( "WSARecv fail, errno %d\n", WSAGetLastError() );
 			close_client( client );
 		}
@@ -108,6 +125,10 @@ void on_write( SP_TestClient * client, SP_TestEvent * event )
 
 		int bytesTransferred = send( (SOCKET)client->mFd, buffer, strlen( buffer ), 0 );
 		if( bytesTransferred <= 0 ) {
+			if( bytesTransferred < 0 ) {
+				printf( "send fail, errno %d\n", WSAGetLastError() );
+				gStat.mSendFail++;
+			}
 			close_client( client );
 			return;
 		}
@@ -122,6 +143,7 @@ void on_write( SP_TestClient * client, SP_TestEvent * event )
 		if( SOCKET_ERROR == WSASend( (SOCKET)client->mFd, &( event->mWsaBuf ), 1,
 				&sendBytes, 0,	&( event->mOverlapped ), NULL ) ) {
 			if( ERROR_IO_PENDING != WSAGetLastError() ) {
+				gStat.mWSASendFail++;
 				printf( "WSASend fail, errno %d\n", WSAGetLastError() );
 				close_client( client );
 			}
@@ -142,7 +164,10 @@ void eventLoop( HANDLE hIocp )
 	DWORD lastError = WSAGetLastError();
 
 	if( ! isSuccess ) {
-		if( NULL != client ) close_client( client );
+		if( NULL != client ) {
+			gStat.mGQCSFail++;
+			close_client( client );
+		}
 		return;
 	}
 
@@ -271,7 +296,10 @@ int main( int argc, char * argv[] )
 	// show result
 	printf( "\n\nTest result :\n" );
 	printf( "Clients : %d, Messages Per Client : %d\n", totalClients, gMsgs );
-	printf( "ExecTimes: %.6f seconds\n\n", totalTime );
+	printf( "Failure : send %d, WSASend %d, recv %d, WSARecv %d, GQCS %d\n",
+			gStat.mSendFail, gStat.mWSASendFail, gStat.mRecvFail,
+			gStat.mWSARecvFail, gStat.mGQCSFail );
+	printf( "ExecTimes : %.6f seconds\n\n", totalTime );
 
 	printf( "client\tSend\tRecv\n" );
 	int totalSend = 0, totalRecv = 0;
