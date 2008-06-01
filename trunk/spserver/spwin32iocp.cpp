@@ -67,7 +67,7 @@ BOOL SP_IocpEventCallback :: addSession( SP_IocpEventArg * eventArg, HANDLE clie
 
 BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 {
-	BOOL ret = true;
+	BOOL ret = TRUE;
 
 	if( 0 == session->getReading() && SP_Session::eNormal == session->getStatus() ) {
 		SP_Sid_t sid = session->getSid();
@@ -75,18 +75,32 @@ BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 		SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
 		SP_IocpEvent_t * recvEvent = &( iocpSession->mRecvEvent );
 
-		memset( &( recvEvent->mOverlapped ), 0, sizeof( OVERLAPPED ) );
-		recvEvent->mType = SP_IocpEvent_t::eEventRecv;
-		recvEvent->mWsaBuf.buf = NULL;
-		recvEvent->mWsaBuf.len = 0;
+		const int SP_MAX_RETRY = 5;
 
-		DWORD recvBytes = 0, flags = 0;
-		if( SOCKET_ERROR == WSARecv( (SOCKET)iocpSession->mHandle, &(recvEvent->mWsaBuf), 1,
-				&recvBytes, &flags, &( recvEvent->mOverlapped ), NULL ) ) {
-			if( ERROR_IO_PENDING != WSAGetLastError() ) {
-				sp_syslog( LOG_ERR, "session(%d.%d) WSARecv fail, errno %d",
-						sid.mKey, sid.mSeq, WSAGetLastError() );
-				ret = FALSE;
+		for( int retry = 0; retry < SP_MAX_RETRY; retry++ ) {
+			memset( &( recvEvent->mOverlapped ), 0, sizeof( OVERLAPPED ) );
+			recvEvent->mType = SP_IocpEvent_t::eEventRecv;
+			recvEvent->mWsaBuf.buf = NULL;
+			recvEvent->mWsaBuf.len = 0;
+
+			DWORD recvBytes = 0, flags = 0;
+			if( SOCKET_ERROR == WSARecv( (SOCKET)iocpSession->mHandle, &(recvEvent->mWsaBuf), 1,
+					&recvBytes, &flags, &( recvEvent->mOverlapped ), NULL ) ) {
+				int lastError = WSAGetLastError();
+				if( ERROR_IO_PENDING != lastError ) {
+					sp_syslog( LOG_ERR, "session(%d.%d) WSARecv fail, errno %d",
+							sid.mKey, sid.mSeq, lastError );
+				}
+
+				if( WSAENOBUFS == lastError && retry < SP_MAX_RETRY - 1 ) {
+					Sleep( 50 * retry );
+					continue;
+				} else {
+					if( ERROR_IO_PENDING != lastError ) ret = FALSE;
+					break;
+				}
+			} else {
+				break;
 			}
 		}
 
@@ -152,38 +166,57 @@ void SP_IocpEventCallback :: onRecv( SP_IocpSession_t * iocpSession )
 
 BOOL SP_IocpEventCallback :: addSend( SP_Session * session )
 {
+	BOOL ret = TRUE;
+
 	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 	SP_IocpEvent_t * sendEvent = &( iocpSession->mSendEvent );
 	SP_Sid_t sid = session->getSid();
 
 	if( 0 == session->getWriting() ) {
-		memset( &( sendEvent->mOverlapped ), 0, sizeof( OVERLAPPED ) );
-		sendEvent->mType = SP_IocpEvent_t::eEventSend;
-		sendEvent->mWsaBuf.buf = NULL;
-		sendEvent->mWsaBuf.len = 0;
 
-		DWORD sendBytes = 0;
+		const int SP_MAX_RETRY = 5;
 
-		if( SOCKET_ERROR == WSASend( (SOCKET)iocpSession->mHandle, &( sendEvent->mWsaBuf ), 1,
-				&sendBytes, 0,	&( sendEvent->mOverlapped ), NULL ) ) {
-			if( ERROR_IO_PENDING != WSAGetLastError() ) {
-				sp_syslog( LOG_ERR, "session(%d.%d) WSASend fail, errno %d",
-						sid.mKey, sid.mSeq, WSAGetLastError() );
-				return FALSE;
+		for( int retry = 0; retry < SP_MAX_RETRY; retry++ ) {
+			memset( &( sendEvent->mOverlapped ), 0, sizeof( OVERLAPPED ) );
+			sendEvent->mType = SP_IocpEvent_t::eEventSend;
+			sendEvent->mWsaBuf.buf = NULL;
+			sendEvent->mWsaBuf.len = 0;
+
+			DWORD sendBytes = 0;
+
+			if( SOCKET_ERROR == WSASend( (SOCKET)iocpSession->mHandle, &( sendEvent->mWsaBuf ), 1,
+					&sendBytes, 0,	&( sendEvent->mOverlapped ), NULL ) ) {
+				int lastError = WSAGetLastError();
+				if( ERROR_IO_PENDING != lastError ) {
+					sp_syslog( LOG_ERR, "session(%d.%d) WSASend fail, errno %d",
+							sid.mKey, sid.mSeq, lastError );
+				}
+
+				if( WSAENOBUFS == lastError && retry < SP_MAX_RETRY - 1 ) {
+					Sleep( 50 * retry );
+					continue;
+				} else {
+					if( ERROR_IO_PENDING != lastError ) ret = FALSE;
+					break;
+				}
+			} else {
+				break;
 			}
 		}
 
-		if( eventArg->getTimeout() > 0 ) {
-			sp_gettimeofday( &( sendEvent->mTimeout ), NULL );
-			sendEvent->mTimeout.tv_sec += eventArg->getTimeout();
-			eventArg->getEventHeap()->push( sendEvent );
-		}
+		if( ret ) {
+			if( eventArg->getTimeout() > 0 ) {
+				sp_gettimeofday( &( sendEvent->mTimeout ), NULL );
+				sendEvent->mTimeout.tv_sec += eventArg->getTimeout();
+				eventArg->getEventHeap()->push( sendEvent );
+			}
 
-		session->setWriting( 1 );
+			session->setWriting( 1 );
+		}
 	}
 
-	return TRUE;
+	return ret;
 }
 
 void SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession )
@@ -214,6 +247,8 @@ void SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession )
 			ret = -1;
 
 			int lastError = WSAGetLastError();
+
+			if( WSAENOBUFS == lastError && addSend( session ) ) ret = 0;
 
 			if( WSAEWOULDBLOCK == lastError && addSend( session ) ) ret = 0;
 
@@ -446,6 +481,13 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 	}
 
 	if( ! isSuccess ) {
+		if( eKeyAccept == completionKey ) {
+			sp_syslog( LOG_ERR, "accept(%d) fail", acceptArg->mClientSocket );
+			sp_close( (SOCKET)acceptArg->mClientSocket );
+			// signal SP_IocpServer::acceptThread to post another AcceptEx
+			SetEvent( acceptArg->mAcceptEvent );
+		}
+
 		if( NULL != overlapped ) {
 			// process a failed completed I/O request
 			// lastError continas the reason for failure
@@ -484,22 +526,26 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 		SP_IocpMsgQueue * msgQueue = (SP_IocpMsgQueue*)overlapped;
 		msgQueue->process();
 		return TRUE;
-	} else if( eKeyFree == completionKey ) {
-		assert( NULL == iocpSession );
-		iocpSession = CONTAINING_RECORD( overlapped, SP_IocpSession_t, mFreeEvent );
-
-		//SP_Sid_t sid = iocpSession->mSession->getSid();
-		//sp_syslog( LOG_DEBUG, "session(%d.%d) clean, online %d",
-				//sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
-
-		delete iocpSession->mSession;
-		free( iocpSession );
-		return TRUE;
 	} else {
-		if( NULL == iocpSession ) return TRUE;
-
 		SP_IocpEvent_t * iocpEvent = 
 				CONTAINING_RECORD( overlapped, SP_IocpEvent_t, mOverlapped );
+
+		if( SP_IocpEvent_t::eEventClose == iocpEvent->mType ) {
+			iocpSession = CONTAINING_RECORD( iocpEvent, SP_IocpSession_t, mCloseEvent );
+
+			SP_Sid_t sid = iocpSession->mSession->getSid();
+			sp_syslog( LOG_DEBUG, "session(%d.%d) clean, online %d",
+					sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
+			if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
+				sp_syslog( LOG_ERR, "close(%d) fail, errno %d",
+					iocpSession->mHandle, WSAGetLastError() );
+			}
+			delete iocpSession->mSession;
+			free( iocpSession );
+			return TRUE;
+		}
+
+		if( NULL == iocpSession ) return TRUE;
 
 		eventArg->getEventHeap()->erase( iocpEvent );
 
@@ -621,21 +667,16 @@ void SP_IocpEventHelper :: close( void * arg )
 
 	session->getHandler()->close();
 
-	SP_IOUtils::setBlock( (SOCKET)iocpSession->mHandle );
+	iocpSession->mCloseEvent.mHeapIndex = -1;
+	iocpSession->mCloseEvent.mType = SP_IocpEvent_t::eEventClose;
+	memset( &( iocpSession->mCloseEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
 
-	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle ) ) {
+	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle,
+			&(iocpSession->mCloseEvent.mOverlapped), 0, 0 ) ) {
 		if( ERROR_IO_PENDING != WSAGetLastError () ) {
 			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
 		}
 	}
-
-	if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
-		sp_syslog( LOG_ERR, "close(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
-	}
-
-	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
-	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
-			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
 
 	sp_syslog( LOG_NOTICE, "session(%d.%d) close, online %d",
 			sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
@@ -688,21 +729,16 @@ void SP_IocpEventHelper :: error( void * arg )
 	// the other threads will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
 
-	SP_IOUtils::setBlock( (SOCKET)iocpSession->mHandle );
+	iocpSession->mCloseEvent.mHeapIndex = -1;
+	iocpSession->mCloseEvent.mType = SP_IocpEvent_t::eEventClose;
+	memset( &( iocpSession->mCloseEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
 
-	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle ) ) {
+	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle,
+			&(iocpSession->mCloseEvent.mOverlapped), 0, 0 ) ) {
 		if( ERROR_IO_PENDING != WSAGetLastError () ) {
 			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
 		}
 	}
-
-	if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
-		sp_syslog( LOG_ERR, "close(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
-	}
-
-	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
-	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
-			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
 
 	sp_syslog( LOG_WARNING, "session(%d.%d) error, exit", sid.mKey, sid.mSeq );
 }
@@ -754,21 +790,16 @@ void SP_IocpEventHelper :: timeout( void * arg )
 	// the other threads will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
 
-	SP_IOUtils::setBlock( (SOCKET)iocpSession->mHandle );
+	iocpSession->mCloseEvent.mHeapIndex = -1;
+	iocpSession->mCloseEvent.mType = SP_IocpEvent_t::eEventClose;
+	memset( &( iocpSession->mCloseEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
 
-	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle ) ) {
+	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle,
+			&(iocpSession->mCloseEvent.mOverlapped), 0, 0 ) ) {
 		if( ERROR_IO_PENDING != WSAGetLastError () ) {
 			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
 		}
 	}
-
-	if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
-		sp_syslog( LOG_ERR, "close(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
-	}
-
-	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
-	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
-			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
 
 	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, exit", sid.mKey, sid.mSeq );
 }
