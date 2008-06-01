@@ -57,6 +57,12 @@ public:
 	SP_IOChannel * getIOChannel();
 	void setIOChannel( SP_IOChannel * ioChannel );
 
+	unsigned int getTotalRead();
+	void addRead( int len );
+
+	unsigned int getTotalWrite();
+	void addWrite( int len );
+
 private:
 
 	SP_Session( SP_Session & );
@@ -80,6 +86,8 @@ private:
 	char mRunning;
 	char mWriting;
 	char mReading;
+
+	unsigned int mTotalRead, mTotalWrite;
 
 	SP_IOChannel * mIOChannel;
 };

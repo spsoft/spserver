@@ -139,6 +139,8 @@ SP_Session :: SP_Session( SP_Sid_t sid )
 	mWriting = 0;
 	mReading = 0;
 
+	mTotalRead = mTotalWrite = 0;
+
 	mIOChannel = NULL;
 }
 
@@ -280,3 +282,22 @@ void SP_Session :: setIOChannel( SP_IOChannel * ioChannel )
 	mIOChannel = ioChannel;
 }
 
+unsigned int SP_Session :: getTotalRead()
+{
+	return mTotalRead;
+}
+
+void SP_Session :: addRead( int len )
+{
+	mTotalRead += len;
+}
+
+unsigned int SP_Session :: getTotalWrite()
+{
+	return mTotalWrite;
+}
+
+void SP_Session :: addWrite( int len )
+{
+	mTotalWrite += len;
+}
