@@ -51,7 +51,7 @@ typedef struct tagSP_IocpSession {
 class SP_IocpEventCallback {
 public:
 
-	enum { eKeyAccept, eKeyMsgQueue };
+	enum { eKeyUnknown, eKeyAccept, eKeyMsgQueue };
 
 	static BOOL addSession( SP_IocpEventArg * eventArg, HANDLE client, SP_Session * session );
 	static BOOL addRecv( SP_Session * session );

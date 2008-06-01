@@ -136,6 +136,7 @@ void SP_IocpEventCallback :: onRecv( SP_IocpSession_t * iocpSession )
 			(int)iocpSession->mHandle, -1 );
 
 	if( len > 0 ) {
+		session->addRead( len );
 		if( 0 == session->getRunning() ) {
 			SP_IocpEventHelper::doDecodeForWork( session );
 		}
@@ -537,9 +538,9 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 		if( SP_IocpEvent_t::eEventClose == iocpEvent->mType ) {
 			iocpSession = CONTAINING_RECORD( iocpEvent, SP_IocpSession_t, mCloseEvent );
 
-			SP_Sid_t sid = iocpSession->mSession->getSid();
-			sp_syslog( LOG_DEBUG, "session(%d.%d) clean, online %d",
-					sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
+			//SP_Sid_t sid = iocpSession->mSession->getSid();
+			//sp_syslog( LOG_DEBUG, "session(%d.%d) clean, online %d",
+					//sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
 			if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
 				sp_syslog( LOG_ERR, "close(%d) fail, errno %d",
 					iocpSession->mHandle, WSAGetLastError() );
@@ -682,8 +683,10 @@ void SP_IocpEventHelper :: close( void * arg )
 		}
 	}
 
-	sp_syslog( LOG_NOTICE, "session(%d.%d) close, online %d",
-			sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
+	sp_syslog( LOG_NOTICE, "session(%d.%d) close, r %d, w %d, i %d, o %d, ol %d",
+			sid.mKey, sid.mSeq, session->getTotalRead(), session->getTotalWrite(),
+			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
+			eventArg->getSessionManager()->getCount() );
 }
 
 void SP_IocpEventHelper :: doError( SP_Session * session )
@@ -744,7 +747,10 @@ void SP_IocpEventHelper :: error( void * arg )
 		}
 	}
 
-	sp_syslog( LOG_WARNING, "session(%d.%d) error, exit", sid.mKey, sid.mSeq );
+	sp_syslog( LOG_WARNING, "session(%d.%d) error, r %d, w %d, i %d, o %d, ol %d",
+			sid.mKey, sid.mSeq, session->getTotalRead(), session->getTotalWrite(),
+			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
+			eventArg->getSessionManager()->getCount() );
 }
 
 void SP_IocpEventHelper :: doTimeout( SP_Session * session )
@@ -805,7 +811,10 @@ void SP_IocpEventHelper :: timeout( void * arg )
 		}
 	}
 
-	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, exit", sid.mKey, sid.mSeq );
+	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, r %d, w %d, i %d, o %d, ol %d",
+			sid.mKey, sid.mSeq, session->getTotalRead(), session->getTotalWrite(),
+			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
+			eventArg->getSessionManager()->getCount() );
 }
 
 void SP_IocpEventHelper :: doStart( SP_Session * session )
@@ -880,6 +889,7 @@ int SP_IocpEventHelper :: transmit( SP_Session * session )
 	int len = spwin32_writev( (SOCKET)iocpSession->mHandle, iovArray, iovSize );
 
 	if( len > 0 ) {
+		session->addWrite( len );
 		outOffset = session->getOutOffset() + len;
 
 		for( ; outList->getCount() > 0; ) {
