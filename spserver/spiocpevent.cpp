@@ -273,9 +273,13 @@ int SP_IocpEventArg :: loadDisconnectEx( SOCKET fd )
 	return NULL != mDisconnectExFunc ? 0 : -1;
 }
 
-BOOL SP_IocpEventArg :: disconnectEx( SOCKET fd )
+BOOL SP_IocpEventArg :: disconnectEx( SOCKET fd, LPOVERLAPPED lpOverlapped,
+		DWORD dwFlags, DWORD reserved )
 {
 	LPFN_DISCONNECTEX fnDisConnectEx = (LPFN_DISCONNECTEX)mDisconnectExFunc;
-	if( NULL != fnDisConnectEx ) return fnDisConnectEx( fd, NULL, 0, 0 );
+	if( NULL != fnDisConnectEx ) {
+		return fnDisConnectEx( fd, lpOverlapped, dwFlags, reserved );
+	}
+
 	return FALSE;
 }

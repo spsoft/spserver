@@ -10,7 +10,7 @@
 
 typedef struct tagSP_IocpEvent {
 	enum { SP_IOCP_MAX_IOV = 8 };
-	enum { eEventRecv, eEventSend, eEventTimer };
+	enum { eEventRecv, eEventSend, eEventTimer, eEventClose };
 
 	OVERLAPPED mOverlapped;
 	int mType;
@@ -93,7 +93,8 @@ public:
 
 	int loadDisconnectEx( SOCKET fd );
 
-	BOOL disconnectEx( SOCKET fd );
+	BOOL disconnectEx( SOCKET fd, LPOVERLAPPED lpOverlapped,
+			DWORD dwFlags, DWORD reserved );
 
 	void setTimeout( int timeout );
 	int getTimeout();
