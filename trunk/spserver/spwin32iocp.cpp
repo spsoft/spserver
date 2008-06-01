@@ -173,6 +173,10 @@ BOOL SP_IocpEventCallback :: addSend( SP_Session * session )
 	SP_IocpEvent_t * sendEvent = &( iocpSession->mSendEvent );
 	SP_Sid_t sid = session->getSid();
 
+	if( 0 == session->getRunning() ) {
+		SP_IocpEventHelper::doDecodeForWork( session );
+	}
+
 	if( 0 == session->getWriting() ) {
 
 		const int SP_MAX_RETRY = 5;
