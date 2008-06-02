@@ -538,9 +538,9 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 		if( SP_IocpEvent_t::eEventClose == iocpEvent->mType ) {
 			iocpSession = CONTAINING_RECORD( iocpEvent, SP_IocpSession_t, mCloseEvent );
 
-			//SP_Sid_t sid = iocpSession->mSession->getSid();
-			//sp_syslog( LOG_DEBUG, "session(%d.%d) clean, online %d",
-					//sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
+			SP_Sid_t sid = iocpSession->mSession->getSid();
+			sp_syslog( LOG_DEBUG, "session(%d.%d) clean, online %d",
+					sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
 			if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
 				sp_syslog( LOG_ERR, "close(%d) fail, errno %d",
 					iocpSession->mHandle, WSAGetLastError() );
@@ -683,8 +683,9 @@ void SP_IocpEventHelper :: close( void * arg )
 		}
 	}
 
-	sp_syslog( LOG_NOTICE, "session(%d.%d) close, r %d, w %d, i %d, o %d, ol %d",
-			sid.mKey, sid.mSeq, session->getTotalRead(), session->getTotalWrite(),
+	sp_syslog( LOG_NOTICE, "session(%d.%d) close, r %d(%d), w %d(%d), i %d, o %d, ol %d",
+			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
+			session->getTotalWrite(), session->getWriting(),
 			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
 			eventArg->getSessionManager()->getCount() );
 }
@@ -693,10 +694,15 @@ void SP_IocpEventHelper :: doError( SP_Session * session )
 {
 	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
+	SP_Sid_t sid = session->getSid();
+
+	sp_syslog( LOG_WARNING, "session(%d.%d) error, r %d(%d), w %d(%d), i %d, o %d, ol %d",
+			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
+			session->getTotalWrite(), session->getWriting(),
+			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
+			eventArg->getSessionManager()->getCount() );
 
 	session->setRunning( 1 );
-
-	SP_Sid_t sid = session->getSid();
 
 	SP_ArrayList * outList = session->getOutList();
 	for( ; outList->getCount() > 0; ) {
@@ -746,21 +752,21 @@ void SP_IocpEventHelper :: error( void * arg )
 			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
 		}
 	}
-
-	sp_syslog( LOG_WARNING, "session(%d.%d) error, r %d, w %d, i %d, o %d, ol %d",
-			sid.mKey, sid.mSeq, session->getTotalRead(), session->getTotalWrite(),
-			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
-			eventArg->getSessionManager()->getCount() );
 }
 
 void SP_IocpEventHelper :: doTimeout( SP_Session * session )
 {
 	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
+	SP_Sid_t sid = session->getSid();
+
+	sp_syslog( LOG_WARNING, "session(%d.%d) error, r %d(%d), w %d(%d), i %d, o %d, ol %d",
+			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
+			session->getTotalWrite(), session->getWriting(),
+			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
+			eventArg->getSessionManager()->getCount() );
 
 	session->setRunning( 1 );
-
-	SP_Sid_t sid = session->getSid();
 
 	SP_ArrayList * outList = session->getOutList();
 	for( ; outList->getCount() > 0; ) {
@@ -810,11 +816,6 @@ void SP_IocpEventHelper :: timeout( void * arg )
 			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
 		}
 	}
-
-	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, r %d, w %d, i %d, o %d, ol %d",
-			sid.mKey, sid.mSeq, session->getTotalRead(), session->getTotalWrite(),
-			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
-			eventArg->getSessionManager()->getCount() );
 }
 
 void SP_IocpEventHelper :: doStart( SP_Session * session )
