@@ -20,9 +20,11 @@
 #include "event.h"
 
 static const char * gHost = "127.0.0.1";
-static int gPort = 5555;
+static int gPort = 3333;
 static int gMsgs = 10;
 static int gClients = 10;
+static int gConnWait = 0;
+static int gSockWait = 0;
 
 static time_t gStartTime = 0;
 
@@ -37,12 +39,15 @@ struct SP_TestClient {
 
 void showUsage( const char * program )
 {
-	printf( "Stress Test Tools for spserver example -- testchat\n" );
-	printf( "Usage: %s [-h <host>] [-p <port>] [-c <clients>] [-m <messages>]\n", program );
+	printf( "\nStress Test Tools for spserver example -- testecho/testchat\n\n" );
+	printf( "Usage: %s [-h <host>] [-p <port>] [-c <clients>] [-m <messages>]\n"
+			"\t\t\t[-w <connect wait>] [-s <socket wait>]\n\n", program );
 	printf( "\t-h default is %s\n", gHost );
 	printf( "\t-p default is %d\n", gPort );
 	printf( "\t-c how many clients, default is %d\n", gClients );
 	printf( "\t-m messages per client, default is %d\n", gMsgs );
+	printf( "\t-w how many milliseconds to wait between creating every 100 connections, default is %d\n", gConnWait );
+	printf( "\t-s how many milliseconds to wait between every event loop, default is %d\n", gSockWait );
 	printf( "\n" );
 }
 
@@ -118,12 +123,12 @@ void on_write( int fd, short events, void *arg )
 	}
 }
 
-int main( int argc, char * argv[] )
+void parse_arg( int argc, char * argv[] )
 {
 	extern char *optarg ;
 	int c ;
 
-	while( ( c = getopt ( argc, argv, "h:p:c:m:v" )) != EOF ) {
+	while( ( c = getopt ( argc, argv, "h:p:c:m:w:s:v" )) != EOF ) {
 		switch ( c ) {
 			case 'h' :
 				gHost = optarg;
@@ -137,12 +142,23 @@ int main( int argc, char * argv[] )
 			case 'm' :
 				gMsgs = atoi( optarg );
 				break;
+			case 'w':
+				gConnWait = atoi( optarg );
+				break;
+			case 's':
+				gSockWait = atoi( optarg );
+				break;
 			case 'v' :
 			case '?' :
 				showUsage( argv[0] );
 				exit( 0 );
 		}
 	}
+}
+
+int main( int argc, char * argv[] )
+{
+	parse_arg( argc, argv );
 
 #ifdef SIGPIPE
 	signal( SIGPIPE, SIG_IGN );
@@ -190,6 +206,8 @@ int main( int argc, char * argv[] )
 		event_add( &client->mReadEvent, NULL );
 
 		if( 0 == ( i % 10 ) ) write( fileno( stdout ), ".", 1 );
+
+		if( gConnWait > 0 && ( i > 0 ) && ( 0 == ( i % 100 ) ) ) usleep( gConnWait * 1000 );
 	}
 
 	time( &gStartTime );
@@ -208,6 +226,8 @@ int main( int argc, char * argv[] )
 			time( &lastInfoTime );
 			printf( "waiting for %d client(s) to exit\n", gClients );
 		}
+
+		if( gSockWait > 0 ) usleep( gSockWait * 1000 );
 	}
 
 	sp_gettimeofday( &stopTime, NULL );
@@ -217,6 +237,7 @@ int main( int argc, char * argv[] )
 
 	// show result
 	printf( "\n\nTest result :\n" );
+	printf( "Host %s, Port %d, ConnWait: %d, SockWait: %d\n", gHost, gPort, gConnWait, gSockWait );
 	printf( "Clients : %d, Messages Per Client : %d\n", totalClients, gMsgs );
 	printf( "ExecTimes: %.6f seconds\n\n", totalTime );
 

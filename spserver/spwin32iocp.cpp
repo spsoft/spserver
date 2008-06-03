@@ -140,6 +140,14 @@ void SP_IocpEventCallback :: onRecv( SP_IocpSession_t * iocpSession )
 		if( 0 == session->getRunning() ) {
 			SP_IocpEventHelper::doDecodeForWork( session );
 		}
+		if( ! addRecv( session ) ) {
+			if( 0 == session->getRunning() ) {
+				SP_IocpEventHelper::doError( session );
+			} else {
+				sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later",
+						sid.mKey, sid.mSeq );
+			}
+		}
 	} else if( 0 == len ) {
 		if( 0 == session->getRunning() ) {
 			SP_IocpEventHelper::doClose( session );
@@ -532,6 +540,12 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 		msgQueue->process();
 		return TRUE;
 	} else {
+		if( NULL == overlapped ) {
+			sp_syslog( LOG_ERR, "it's dangerous, overlapped is null, "
+					"completionKey %d, timeout %d",	completionKey, timeout );
+			return TRUE;
+		}
+
 		SP_IocpEvent_t * iocpEvent = 
 				CONTAINING_RECORD( overlapped, SP_IocpEvent_t, mOverlapped );
 
@@ -539,8 +553,9 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 			iocpSession = CONTAINING_RECORD( iocpEvent, SP_IocpSession_t, mCloseEvent );
 
 			SP_Sid_t sid = iocpSession->mSession->getSid();
-			sp_syslog( LOG_DEBUG, "session(%d.%d) clean, online %d",
-					sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount() );
+			sp_syslog( LOG_DEBUG, "session(%d.%d) clean, online %d, heap %d",
+					sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount(),
+					eventArg->getEventHeap()->getCount() );
 			if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
 				sp_syslog( LOG_ERR, "close(%d) fail, errno %d",
 					iocpSession->mHandle, WSAGetLastError() );
@@ -683,11 +698,12 @@ void SP_IocpEventHelper :: close( void * arg )
 		}
 	}
 
-	sp_syslog( LOG_NOTICE, "session(%d.%d) close, r %d(%d), w %d(%d), i %d, o %d, ol %d",
+	sp_syslog( LOG_NOTICE, "session(%d.%d) close, r %d(%d), w %d(%d), i %d, o %d, c %d, t %d",
 			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
 			session->getTotalWrite(), session->getWriting(),
 			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
-			eventArg->getSessionManager()->getCount() );
+			eventArg->getSessionManager()->getCount(),
+			eventArg->getEventHeap()->getCount() );
 }
 
 void SP_IocpEventHelper :: doError( SP_Session * session )
@@ -696,11 +712,12 @@ void SP_IocpEventHelper :: doError( SP_Session * session )
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 	SP_Sid_t sid = session->getSid();
 
-	sp_syslog( LOG_WARNING, "session(%d.%d) error, r %d(%d), w %d(%d), i %d, o %d, ol %d",
+	sp_syslog( LOG_WARNING, "session(%d.%d) error, r %d(%d), w %d(%d), i %d, o %d, c %d, t %d",
 			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
 			session->getTotalWrite(), session->getWriting(),
 			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
-			eventArg->getSessionManager()->getCount() );
+			eventArg->getSessionManager()->getCount(),
+			eventArg->getEventHeap()->getCount() );
 
 	session->setRunning( 1 );
 
@@ -760,11 +777,12 @@ void SP_IocpEventHelper :: doTimeout( SP_Session * session )
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 	SP_Sid_t sid = session->getSid();
 
-	sp_syslog( LOG_WARNING, "session(%d.%d) error, r %d(%d), w %d(%d), i %d, o %d, ol %d",
+	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, r %d(%d), w %d(%d), i %d, o %d, c %d, t %d",
 			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
 			session->getTotalWrite(), session->getWriting(),
 			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
-			eventArg->getSessionManager()->getCount() );
+			eventArg->getSessionManager()->getCount(),
+			eventArg->getEventHeap()->getCount() );
 
 	session->setRunning( 1 );
 

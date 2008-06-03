@@ -37,7 +37,7 @@ typedef int socklen_t;
 #define sp_initsock     spwin32_initsocket
 #define sp_gettimeofday spwin32_gettimeofday
 
-#define sp_syslog       spwin32_syslog
+#define sp_syslog       g_spwin32_syslog
 #define sp_openlog      spwin32_openlog
 #define sp_closelog     spwin32_closelog
 #define sp_setlogmask   spwin32_setlogmask
@@ -100,6 +100,11 @@ extern void spwin32_syslog (int priority, const char * format, ...);
 extern void spwin32_closelog (void);
 extern void spwin32_openlog (const char *ident , int option , int facility);
 extern int spwin32_setlogmask (int priority);
+
+typedef void ( * spwin32_logger_t ) ( int priority, const char * format, ... );
+
+/* default is spwin32_syslog, write to stdout */
+extern spwin32_logger_t g_spwin32_syslog;
 
 #ifdef __cplusplus
 }

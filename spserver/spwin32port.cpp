@@ -116,6 +116,10 @@ int spwin32_gettimeofday(struct timeval* tv, void * )
 	return 0;
 }
 
+//-------------------------------------------------------------------
+
+spwin32_logger_t g_spwin32_syslog = spwin32_syslog;
+
 void spwin32_syslog (int priority, const char * format, ...)
 {
 	char logTemp[ 1024 ] = { 0 };
@@ -144,6 +148,8 @@ int spwin32_setlogmask (int priority)
 {
 	return 0;
 }
+
+//-------------------------------------------------------------------
 
 int spwin32_initsocket()
 {
