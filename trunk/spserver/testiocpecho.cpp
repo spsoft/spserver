@@ -21,6 +21,7 @@
 #include "sprequest.hpp"
 #include "sphandler.hpp"
 #include "sputils.hpp"
+#include "spgetopt.h"
 
 #pragma comment(lib,"ws2_32")
 #pragma comment(lib,"mswsock")
@@ -108,11 +109,38 @@ void IncreaseConnections()
 	}
 }
 
-int main(void)
+int main( int argc, char * argv[] )
 {
-	int port = 3333;
+	int port = 3333, maxThreads = 4, maxConnections = 20000;
+	int timeout = 120, reqQueueSize = 10000;
 
-	_CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
+	extern char *optarg ;
+	int c ;
+
+	while( ( c = getopt ( argc, argv, "p:t:o:c:q:v" )) != EOF ) {
+		switch ( c ) {
+			case 'p' :
+				port = atoi( optarg );
+				break;
+			case 't':
+				maxThreads = atoi( optarg );
+				break;
+			case 'c':
+				maxConnections = atoi( optarg );
+				break;
+			case 'o':
+				timeout = atoi( optarg );
+				break;
+			case 'q':
+				reqQueueSize = atoi( optarg );
+				break;
+			case '?' :
+			case 'v' :
+				printf( "Usage: %s [-p <port>] [-t <threads>] [-c <connections>] "
+						"[-o <timeout>] [-q <queue size>]\n", argv[0] );
+				exit( 0 );
+		}
+	}
 
 	if( 0 != sp_initsock() ) assert( 0 );
 
@@ -120,13 +148,11 @@ int main(void)
 	//IncreaseConnections();
 
 	SP_IocpServer server( "", port, new SP_EchoHandlerFactory() );
-	server.setTimeout( 0 );
-	server.setMaxThreads( 4 );
-	server.setReqQueueSize( 10000, "Byebye\r\n" );
-	server.setMaxConnections( 10000 );
+	server.setTimeout( timeout );
+	server.setMaxThreads( maxThreads );
+	server.setReqQueueSize( reqQueueSize, "Byebye\r\n" );
+	server.setMaxConnections( maxConnections );
 	server.runForever();
-
-	_CrtDumpMemoryLeaks();
 
 	return 0;
 }
