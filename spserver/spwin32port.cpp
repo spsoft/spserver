@@ -130,9 +130,9 @@ void spwin32_syslog (int priority, const char * format, ...)
 	va_end ( vaList );
 
 	if( strchr( logTemp, '\n' ) ) {
-		printf( "%s", logTemp );
+		printf( "#%d %s", GetCurrentThreadId(), logTemp );
 	} else {
-		printf( "%s\n", logTemp );
+		printf( "#%d %s\n", GetCurrentThreadId(), logTemp );
 	}
 }
 
@@ -250,8 +250,8 @@ void spwin32_pause_console()
 		char * pos = strrchr( filePath, '\\' );
 		if( NULL == pos ) pos = filePath;
 
-		if( 0 == stricmp( pos + 1, "msdev.exe" )
-				|| 0 == stricmp( pos + 1, "explorer.exe" ) )
+		if( 0 == strcasecmp( pos + 1, "msdev.exe" )
+				|| 0 == strcasecmp( pos + 1, "explorer.exe" ) )
 		{
 			printf( "\npress any key to exit ...\n" );
 			getchar();

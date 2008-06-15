@@ -302,7 +302,7 @@ BOOL SP_IocpEventCallback :: onAccept( SP_IocpAcceptArg_t * acceptArg )
 
 	SP_Sid_t sid;
 	sid.mKey = (uint16_t) acceptArg->mClientSocket;
-	eventArg->getSessionManager()->get( sid.mKey, &sid.mSeq );
+	assert( NULL == eventArg->getSessionManager()->get( sid.mKey, &sid.mSeq ) );
 
 	SP_Session * session = new SP_Session( sid );
 
@@ -481,11 +481,11 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 			&completionKey, &overlapped, timeout );
 	DWORD lastError = WSAGetLastError();
 
+	SP_Sid_t sid;
+	memcpy( &sid, &completionKey, sizeof( completionKey ) );
+
 	SP_IocpSession_t * iocpSession = NULL;
 	if( completionKey > 0 ) {
-		SP_Sid_t sid;
-		memcpy( &sid, &completionKey, sizeof( completionKey ) );
-
 		uint16_t seq = 0;
 		SP_Session * session = eventArg->getSessionManager()->get( sid.mKey, &seq );
 		if( NULL != session && sid.mSeq == seq ) {
@@ -495,10 +495,11 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 
 	if( ! isSuccess ) {
 		if( eKeyAccept == completionKey ) {
-			sp_syslog( LOG_ERR, "accept(%d) fail", acceptArg->mClientSocket );
+			sp_syslog( LOG_ERR, "accept(%d) fail, errno %d", acceptArg->mClientSocket, lastError );
 			sp_close( (SOCKET)acceptArg->mClientSocket );
 			// signal SP_IocpServer::acceptThread to post another AcceptEx
 			SetEvent( acceptArg->mAcceptEvent );
+			return TRUE;
 		}
 
 		if( NULL != overlapped ) {
@@ -539,33 +540,17 @@ BOOL SP_IocpEventCallback :: eventLoop( SP_IocpEventArg * eventArg, SP_IocpAccep
 		SP_IocpMsgQueue * msgQueue = (SP_IocpMsgQueue*)overlapped;
 		msgQueue->process();
 		return TRUE;
+	} else if( eKeyFree == completionKey ) {
+		assert( NULL == iocpSession );
+		iocpSession = CONTAINING_RECORD( overlapped, SP_IocpSession_t, mFreeEvent );
+		delete iocpSession->mSession;
+		free( iocpSession );
+		return TRUE;
 	} else {
-		if( NULL == overlapped ) {
-			sp_syslog( LOG_ERR, "it's dangerous, overlapped is null, "
-					"completionKey %d, timeout %d",	completionKey, timeout );
-			return TRUE;
-		}
+		if( NULL == iocpSession ) return TRUE;
 
 		SP_IocpEvent_t * iocpEvent = 
 				CONTAINING_RECORD( overlapped, SP_IocpEvent_t, mOverlapped );
-
-		if( SP_IocpEvent_t::eEventClose == iocpEvent->mType ) {
-			iocpSession = CONTAINING_RECORD( iocpEvent, SP_IocpSession_t, mCloseEvent );
-
-			SP_Sid_t sid = iocpSession->mSession->getSid();
-			sp_syslog( LOG_DEBUG, "session(%d.%d) clean, online %d, heap %d",
-					sid.mKey, sid.mSeq, eventArg->getSessionManager()->getCount(),
-					eventArg->getEventHeap()->getCount() );
-			if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
-				sp_syslog( LOG_ERR, "close(%d) fail, errno %d",
-					iocpSession->mHandle, WSAGetLastError() );
-			}
-			delete iocpSession->mSession;
-			free( iocpSession );
-			return TRUE;
-		}
-
-		if( NULL == iocpSession ) return TRUE;
 
 		eventArg->getEventHeap()->erase( iocpEvent );
 
@@ -687,23 +672,26 @@ void SP_IocpEventHelper :: close( void * arg )
 
 	session->getHandler()->close();
 
-	iocpSession->mCloseEvent.mHeapIndex = -1;
-	iocpSession->mCloseEvent.mType = SP_IocpEvent_t::eEventClose;
-	memset( &( iocpSession->mCloseEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
-
-	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle,
-			&(iocpSession->mCloseEvent.mOverlapped), 0, 0 ) ) {
-		if( ERROR_IO_PENDING != WSAGetLastError () ) {
-			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
-		}
-	}
-
 	sp_syslog( LOG_NOTICE, "session(%d.%d) close, r %d(%d), w %d(%d), i %d, o %d, c %d, t %d",
 			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
 			session->getTotalWrite(), session->getWriting(),
 			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
 			eventArg->getSessionManager()->getCount(),
 			eventArg->getEventHeap()->getCount() );
+
+	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle, NULL, 0, 0 ) ) {
+		if( ERROR_IO_PENDING != WSAGetLastError () ) {
+			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
+		}
+	}
+
+	if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
+		sp_syslog( LOG_ERR, "close(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
+	}
+
+	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
+	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
+			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
 }
 
 void SP_IocpEventHelper :: doError( SP_Session * session )
@@ -759,16 +747,19 @@ void SP_IocpEventHelper :: error( void * arg )
 	// the other threads will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
 
-	iocpSession->mCloseEvent.mHeapIndex = -1;
-	iocpSession->mCloseEvent.mType = SP_IocpEvent_t::eEventClose;
-	memset( &( iocpSession->mCloseEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
-
-	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle,
-			&(iocpSession->mCloseEvent.mOverlapped), 0, 0 ) ) {
+	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle, NULL, 0, 0 ) ) {
 		if( ERROR_IO_PENDING != WSAGetLastError () ) {
 			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
 		}
 	}
+
+	if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
+		sp_syslog( LOG_ERR, "close(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
+	}
+
+	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
+	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
+			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
 }
 
 void SP_IocpEventHelper :: doTimeout( SP_Session * session )
@@ -824,16 +815,19 @@ void SP_IocpEventHelper :: timeout( void * arg )
 	// the other threads will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
 
-	iocpSession->mCloseEvent.mHeapIndex = -1;
-	iocpSession->mCloseEvent.mType = SP_IocpEvent_t::eEventClose;
-	memset( &( iocpSession->mCloseEvent.mOverlapped ), 0, sizeof( OVERLAPPED ) );
-
-	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle,
-			&(iocpSession->mCloseEvent.mOverlapped), 0, 0 ) ) {
+	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle, NULL, 0, 0 ) ) {
 		if( ERROR_IO_PENDING != WSAGetLastError () ) {
 			sp_syslog( LOG_ERR, "DisconnectEx(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
 		}
 	}
+
+	if( 0 != sp_close( (SOCKET)iocpSession->mHandle ) ) {
+		sp_syslog( LOG_ERR, "close(%d) fail, errno %d", sid.mKey, WSAGetLastError() );
+	}
+
+	memset( &( iocpSession->mFreeEvent ), 0, sizeof( OVERLAPPED ) );
+	PostQueuedCompletionStatus( eventArg->getCompletionPort(), 0,
+			SP_IocpEventCallback::eKeyFree, &( iocpSession->mFreeEvent ) );
 }
 
 void SP_IocpEventHelper :: doStart( SP_Session * session )

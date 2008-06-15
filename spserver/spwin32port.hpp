@@ -6,6 +6,8 @@
 #ifndef __spwin32port_hpp__
 #define __spwin32port_hpp__
 
+#pragma warning(disable: 4996)
+
 #include <winsock2.h>
 #include <mswsock.h>
 #include <windows.h>
@@ -23,12 +25,19 @@ typedef int socklen_t;
 	typedef BOOL (WINAPI *LPFN_DISCONNECTEX)(SOCKET, LPOVERLAPPED, DWORD, DWORD);
 #endif
 
-#define snprintf _snprintf
+#if _MSC_VER < 1300
+#define localtime_r(_clock, _result) ( *(_result) = *localtime( (_clock) ), (_result) )
 #define strcasecmp stricmp
 #define strncasecmp strnicmp
+#else
+#define localtime_r(_clock, _result) localtime_s(_result, _clock)
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#endif
+
+#define snprintf _snprintf
 #define pause()	Sleep((32767L << 16) + 32767)
 #define sleep(x) Sleep(x*1000)
-#define localtime_r(_clock, _result) ( *(_result) = *localtime( (_clock) ), (_result) )
 
 #define sp_close        closesocket
 #define sp_writev       spwin32_writev

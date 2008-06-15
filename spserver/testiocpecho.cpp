@@ -14,6 +14,7 @@
 
 #include "spwin32iocp.hpp"
 #include "spiocpserver.hpp"
+#include "spiocplfserver.hpp"
 
 #include "spsession.hpp"
 #include "spbuffer.hpp"
@@ -113,11 +114,12 @@ int main( int argc, char * argv[] )
 {
 	int port = 3333, maxThreads = 4, maxConnections = 20000;
 	int timeout = 120, reqQueueSize = 10000;
+	const char * serverType = "lf";
 
 	extern char *optarg ;
 	int c ;
 
-	while( ( c = getopt ( argc, argv, "p:t:o:c:q:v" )) != EOF ) {
+	while( ( c = getopt ( argc, argv, "p:t:o:c:q:s:v" )) != EOF ) {
 		switch ( c ) {
 			case 'p' :
 				port = atoi( optarg );
@@ -134,10 +136,13 @@ int main( int argc, char * argv[] )
 			case 'q':
 				reqQueueSize = atoi( optarg );
 				break;
+			case 's':
+				serverType = optarg;
+				break;
 			case '?' :
 			case 'v' :
 				printf( "Usage: %s [-p <port>] [-t <threads>] [-c <connections>] "
-						"[-o <timeout>] [-q <queue size>]\n", argv[0] );
+						"[-o <timeout>] [-q <queue size>] [-s <hahs|lf>]\n", argv[0] );
 				exit( 0 );
 		}
 	}
@@ -147,12 +152,23 @@ int main( int argc, char * argv[] )
 	//Warning: This modifies your operating system. Use it at your own risk.
 	//IncreaseConnections();
 
-	SP_IocpServer server( "", port, new SP_EchoHandlerFactory() );
-	server.setTimeout( timeout );
-	server.setMaxThreads( maxThreads );
-	server.setReqQueueSize( reqQueueSize, "Byebye\r\n" );
-	server.setMaxConnections( maxConnections );
-	server.runForever();
+	sp_syslog( LOG_DEBUG, "server type %s", serverType );
+
+	if( 0 == strcasecmp( serverType, "hahs" ) ) {
+		SP_IocpServer server( "", port, new SP_EchoHandlerFactory() );
+		server.setTimeout( timeout );
+		server.setMaxThreads( maxThreads );
+		server.setReqQueueSize( reqQueueSize, "Byebye\r\n" );
+		server.setMaxConnections( maxConnections );
+		server.runForever();
+	} else {
+		SP_IocpLFServer server( "", port, new SP_EchoHandlerFactory() );
+		server.setTimeout( timeout );
+		server.setMaxThreads( maxThreads );
+		server.setReqQueueSize( reqQueueSize, "Byebye\r\n" );
+		server.setMaxConnections( maxConnections );
+		server.runForever();
+	}
 
 	return 0;
 }

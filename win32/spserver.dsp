@@ -113,6 +113,10 @@ SOURCE=..\spserver\spiocpevent.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\spserver\spiocplfserver.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\spserver\spiocpserver.cpp
 # End Source File
 # Begin Source File
@@ -194,6 +198,10 @@ SOURCE=..\spserver\spiocpdispatcher.hpp
 # Begin Source File
 
 SOURCE=..\spserver\spiocpevent.hpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\spserver\spiocplfserver.hpp
 # End Source File
 # Begin Source File
 

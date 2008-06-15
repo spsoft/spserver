@@ -1,24 +1,24 @@
-# Microsoft Developer Studio Project File - Name="testiocpecho" - Package Owner=<4>
+# Microsoft Developer Studio Project File - Name="testthreadpool" - Package Owner=<4>
 # Microsoft Developer Studio Generated Build File, Format Version 6.00
 # ** DO NOT EDIT **
 
 # TARGTYPE "Win32 (x86) Console Application" 0x0103
 
-CFG=testiocpecho - Win32 Debug
+CFG=testthreadpool - Win32 Debug
 !MESSAGE This is not a valid makefile. To build this project using NMAKE,
 !MESSAGE use the Export Makefile command and run
 !MESSAGE 
-!MESSAGE NMAKE /f "testiocpecho.mak".
+!MESSAGE NMAKE /f "testthreadpool.mak".
 !MESSAGE 
 !MESSAGE You can specify a configuration when running NMAKE
 !MESSAGE by defining the macro CFG on the command line. For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "testiocpecho.mak" CFG="testiocpecho - Win32 Debug"
+!MESSAGE NMAKE /f "testthreadpool.mak" CFG="testthreadpool - Win32 Debug"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
-!MESSAGE "testiocpecho - Win32 Release" (based on "Win32 (x86) Console Application")
-!MESSAGE "testiocpecho - Win32 Debug" (based on "Win32 (x86) Console Application")
+!MESSAGE "testthreadpool - Win32 Release" (based on "Win32 (x86) Console Application")
+!MESSAGE "testthreadpool - Win32 Debug" (based on "Win32 (x86) Console Application")
 !MESSAGE 
 
 # Begin Project
@@ -28,7 +28,7 @@ CFG=testiocpecho - Win32 Debug
 CPP=cl.exe
 RSC=rc.exe
 
-!IF  "$(CFG)" == "testiocpecho - Win32 Release"
+!IF  "$(CFG)" == "testthreadpool - Win32 Release"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 0
@@ -50,9 +50,9 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 spserver.lib ws2_32.lib MSVCRTD.LIB /nologo /subsystem:console /machine:I386 /libpath:"Release"
+# ADD LINK32 spserver.lib ws2_32.lib /nologo /subsystem:console /machine:I386 /libpath:"..\Release"
 
-!ELSEIF  "$(CFG)" == "testiocpecho - Win32 Debug"
+!ELSEIF  "$(CFG)" == "testthreadpool - Win32 Debug"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 1
@@ -66,7 +66,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /FR /YX /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
 # ADD BASE RSC /l 0x804 /d "_DEBUG"
 # ADD RSC /l 0x804 /d "_DEBUG"
 # SUBTRACT RSC /x
@@ -75,21 +75,21 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 spserver.lib ws2_32.lib MSVCRTD.LIB /nologo /subsystem:console /debug /machine:I386 /nodefaultlib:"libc.lib" /nodefaultlib:"libcmt.lib" /nodefaultlib:"msvcrt.lib" /nodefaultlib:"libcd.lib" /nodefaultlib:"libcmtd.lib" /pdbtype:sept /libpath:"Debug"
+# ADD LINK32 spserver.lib ws2_32.lib MSVCRTD.LIB /nologo /subsystem:console /debug /machine:I386 /nodefaultlib:"libc.lib" /nodefaultlib:"libcmt.lib" /nodefaultlib:"msvcrt.lib" /nodefaultlib:"libcd.lib" /nodefaultlib:"libcmtd.lib" /pdbtype:sept /libpath:"..\Debug"
 # SUBTRACT LINK32 /map /nodefaultlib /force
 
 !ENDIF 
 
 # Begin Target
 
-# Name "testiocpecho - Win32 Release"
-# Name "testiocpecho - Win32 Debug"
+# Name "testthreadpool - Win32 Release"
+# Name "testthreadpool - Win32 Debug"
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
-SOURCE=..\spserver\testiocpecho.cpp
+SOURCE=..\..\spserver\testthreadpool.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
