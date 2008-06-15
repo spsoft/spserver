@@ -112,8 +112,8 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 	}
 
 	SP_Sid_t sid;
-	sid.mKey = clientFD;
-	eventArg->getSessionManager()->get( sid.mKey, &sid.mSeq );
+	sid.mKey = eventArg->getSessionManager()->allocKey( &sid.mSeq );
+	assert( sid.mKey > 0 );
 
 	SP_Session * session = new SP_Session( sid );
 
@@ -122,7 +122,7 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 	session->getRequest()->setClientIP( clientIP );
 
 	if( NULL != session ) {
-		eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
+		eventArg->getSessionManager()->put( sid.mKey, sid.mSeq, session );
 
 		session->setHandler( acceptArg->mHandlerFactory->create() );
 		session->setIOChannel( acceptArg->mIOChannelFactory->create() );
@@ -148,6 +148,7 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 			SP_EventHelper::doStart( session );
 		}
 	} else {
+		eventArg->getSessionManager()->remove( sid.mKey, sid.mSeq );
 		sp_close( clientFD );
 		sp_syslog( LOG_WARNING, "Out of memory, cannot allocate session object!" );
 	}
@@ -430,7 +431,7 @@ void SP_EventHelper :: doError( SP_Session * session )
 	}
 
 	// remove session from SessionManager, onResponse will ignore this session
-	eventArg->getSessionManager()->remove( sid.mKey );
+	eventArg->getSessionManager()->remove( sid.mKey, sid.mSeq );
 
 	eventArg->getInputResultQueue()->push( new SP_SimpleTask( error, session, 1 ) );
 }
@@ -477,7 +478,7 @@ void SP_EventHelper :: doTimeout( SP_Session * session )
 	}
 
 	// remove session from SessionManager, onResponse will ignore this session
-	eventArg->getSessionManager()->remove( sid.mKey );
+	eventArg->getSessionManager()->remove( sid.mKey, sid.mSeq );
 
 	eventArg->getInputResultQueue()->push( new SP_SimpleTask( timeout, session, 1 ) );
 }
@@ -509,7 +510,7 @@ void SP_EventHelper :: doClose( SP_Session * session )
 
 	SP_Sid_t sid = session->getSid();
 
-	eventArg->getSessionManager()->remove( sid.mKey );
+	eventArg->getSessionManager()->remove( sid.mKey, sid.mSeq );
 
 	eventArg->getInputResultQueue()->push( new SP_SimpleTask( myclose, session, 1 ) );
 }

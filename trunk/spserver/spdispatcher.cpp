@@ -183,12 +183,12 @@ void SP_Dispatcher :: onPush( void * queueData, void * arg )
 
 	if( 0 == pushArg->mType ) {
 		SP_Sid_t sid;
-		sid.mKey = pushArg->mFd;
-		eventArg->getSessionManager()->get( sid.mKey, &sid.mSeq );
+		sid.mKey = eventArg->getSessionManager()->allocKey( &sid.mSeq );
+		assert( sid.mKey > 0 );
 
 		SP_Session * session = new SP_Session( sid );
 
-		eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
+		eventArg->getSessionManager()->put( sid.mKey, sid.mSeq, session );
 
 		session->setHandler( pushArg->mHandler );
 		session->setIOChannel( pushArg->mIOChannel );

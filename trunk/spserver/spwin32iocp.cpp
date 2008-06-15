@@ -88,8 +88,8 @@ BOOL SP_IocpEventCallback :: addRecv( SP_Session * session )
 					&recvBytes, &flags, &( recvEvent->mOverlapped ), NULL ) ) {
 				int lastError = WSAGetLastError();
 				if( ERROR_IO_PENDING != lastError ) {
-					sp_syslog( LOG_ERR, "session(%d.%d) WSARecv fail, errno %d",
-							sid.mKey, sid.mSeq, lastError );
+					sp_syslog( LOG_ERR, "session(%d.%d) WSARecv fail, errno %d, retry %d",
+							sid.mKey, sid.mSeq, lastError, retry );
 				}
 
 				if( WSAENOBUFS == lastError && retry < SP_MAX_RETRY - 1 ) {
@@ -202,8 +202,8 @@ BOOL SP_IocpEventCallback :: addSend( SP_Session * session )
 					&sendBytes, 0,	&( sendEvent->mOverlapped ), NULL ) ) {
 				int lastError = WSAGetLastError();
 				if( ERROR_IO_PENDING != lastError ) {
-					sp_syslog( LOG_ERR, "session(%d.%d) WSASend fail, errno %d",
-							sid.mKey, sid.mSeq, lastError );
+					sp_syslog( LOG_ERR, "session(%d.%d) WSASend fail, errno %d, retry %d",
+							sid.mKey, sid.mSeq, lastError, retry );
 				}
 
 				if( WSAENOBUFS == lastError && retry < SP_MAX_RETRY - 1 ) {
@@ -301,8 +301,8 @@ BOOL SP_IocpEventCallback :: onAccept( SP_IocpAcceptArg_t * acceptArg )
 	SP_IocpEventArg * eventArg = acceptArg->mEventArg;
 
 	SP_Sid_t sid;
-	sid.mKey = (uint16_t) acceptArg->mClientSocket;
-	assert( NULL == eventArg->getSessionManager()->get( sid.mKey, &sid.mSeq ) );
+	sid.mKey = eventArg->getSessionManager()->allocKey( &sid.mSeq );
+	assert( sid.mKey > 0 );
 
 	SP_Session * session = new SP_Session( sid );
 
@@ -323,7 +323,7 @@ BOOL SP_IocpEventCallback :: onAccept( SP_IocpAcceptArg_t * acceptArg )
 	session->setHandler( acceptArg->mHandlerFactory->create() );	
 
 	if( addSession( eventArg, acceptArg->mClientSocket, session ) ) {
-		eventArg->getSessionManager()->put( sid.mKey, session, &sid.mSeq );
+		eventArg->getSessionManager()->put( sid.mKey, sid.mSeq, session );
 
 		if( eventArg->getSessionManager()->getCount() > acceptArg->mMaxConnections
 				|| eventArg->getInputResultQueue()->getLength() >= acceptArg->mReqQueueSize ) {
@@ -343,6 +343,7 @@ BOOL SP_IocpEventCallback :: onAccept( SP_IocpAcceptArg_t * acceptArg )
 			SP_IocpEventHelper::doStart( session );
 		}
 	} else {
+		eventArg->getSessionManager()->remove( sid.mKey, sid.mSeq );
 		delete session;
 	}
 
@@ -652,7 +653,7 @@ void SP_IocpEventHelper :: doClose( SP_Session * session )
 	session->setRunning( 1 );
 
 	// remove session from SessionManager, the other threads will ignore this session
-	eventArg->getSessionManager()->remove( sid.mKey );
+	eventArg->getSessionManager()->remove( sid.mKey, sid.mSeq );
 
 	eventArg->getEventHeap()->erase( &( iocpSession->mRecvEvent ) );
 	eventArg->getEventHeap()->erase( &( iocpSession->mSendEvent ) );
@@ -672,11 +673,11 @@ void SP_IocpEventHelper :: close( void * arg )
 
 	session->getHandler()->close();
 
-	sp_syslog( LOG_NOTICE, "session(%d.%d) close, r %d(%d), w %d(%d), i %d, o %d, c %d, t %d",
+	sp_syslog( LOG_NOTICE, "session(%d.%d) close, r %d(%d), w %d(%d), i %d, o %d, s %d(%d), t %d",
 			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
 			session->getTotalWrite(), session->getWriting(),
 			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
-			eventArg->getSessionManager()->getCount(),
+			eventArg->getSessionManager()->getCount(), eventArg->getSessionManager()->getFreeCount(),
 			eventArg->getEventHeap()->getCount() );
 
 	if( ! eventArg->disconnectEx( (SOCKET)iocpSession->mHandle, NULL, 0, 0 ) ) {
@@ -700,11 +701,11 @@ void SP_IocpEventHelper :: doError( SP_Session * session )
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 	SP_Sid_t sid = session->getSid();
 
-	sp_syslog( LOG_WARNING, "session(%d.%d) error, r %d(%d), w %d(%d), i %d, o %d, c %d, t %d",
+	sp_syslog( LOG_WARNING, "session(%d.%d) error, r %d(%d), w %d(%d), i %d, o %d, s %d(%d), t %d",
 			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
 			session->getTotalWrite(), session->getWriting(),
 			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
-			eventArg->getSessionManager()->getCount(),
+			eventArg->getSessionManager()->getCount(), eventArg->getSessionManager()->getFreeCount(),
 			eventArg->getEventHeap()->getCount() );
 
 	session->setRunning( 1 );
@@ -723,7 +724,7 @@ void SP_IocpEventHelper :: doError( SP_Session * session )
 	}
 
 	// remove session from SessionManager, so the other threads will ignore this session
-	eventArg->getSessionManager()->remove( sid.mKey );
+	eventArg->getSessionManager()->remove( sid.mKey, sid.mSeq );
 
 	eventArg->getEventHeap()->erase( &( iocpSession->mRecvEvent ) );
 	eventArg->getEventHeap()->erase( &( iocpSession->mSendEvent ) );
@@ -768,11 +769,11 @@ void SP_IocpEventHelper :: doTimeout( SP_Session * session )
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 	SP_Sid_t sid = session->getSid();
 
-	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, r %d(%d), w %d(%d), i %d, o %d, c %d, t %d",
+	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, r %d(%d), w %d(%d), i %d, o %d, s %d(%d), t %d",
 			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
 			session->getTotalWrite(), session->getWriting(),
 			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
-			eventArg->getSessionManager()->getCount(),
+			eventArg->getSessionManager()->getCount(), eventArg->getSessionManager()->getFreeCount(),
 			eventArg->getEventHeap()->getCount() );
 
 	session->setRunning( 1 );
@@ -791,7 +792,7 @@ void SP_IocpEventHelper :: doTimeout( SP_Session * session )
 	}
 
 	// remove session from SessionManager, the other threads will ignore this session
-	eventArg->getSessionManager()->remove( sid.mKey );
+	eventArg->getSessionManager()->remove( sid.mKey, sid.mSeq );
 
 	eventArg->getEventHeap()->erase( &( iocpSession->mRecvEvent ) );
 	eventArg->getEventHeap()->erase( &( iocpSession->mSendEvent ) );
