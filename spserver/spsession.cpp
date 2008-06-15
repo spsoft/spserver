@@ -1,5 +1,5 @@
 /*
- * Copyright 2007 Stephen Liu
+ * Copyright 2007-2008 Stephen Liu
  * For license terms, see the file COPYING along with this library.
  */
 
@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "spporting.hpp"
 
@@ -25,11 +26,15 @@
 
 typedef struct tagSP_SessionEntry {
 	uint16_t mSeq;
+	uint16_t mNext;
+
 	SP_Session * mSession;
 } SP_SessionEntry;
 
 SP_SessionManager :: SP_SessionManager()
 {
+	mFreeCount = 0;
+	mFreeList = 0;
 	mCount = 0;
 	memset( mArray, 0, sizeof( mArray ) );
 }
@@ -40,7 +45,7 @@ SP_SessionManager :: ~SP_SessionManager()
 		SP_SessionEntry_t * list = mArray[ i ];
 		if( NULL != list ) {
 			SP_SessionEntry_t * iter = list;
-			for( int i = 0; i < 1024; i++, iter++ ) {
+			for( int i = 0; i < eColPerRow; i++, iter++ ) {
 				if( NULL != iter->mSession ) {
 					delete iter->mSession;
 					iter->mSession = NULL;
@@ -53,30 +58,72 @@ SP_SessionManager :: ~SP_SessionManager()
 	memset( mArray, 0, sizeof( mArray ) );
 }
 
+uint16_t SP_SessionManager :: allocKey( uint16_t * seq )
+{
+	uint16_t key = 0;
+
+	if( mFreeList <= 0 ) {
+		int avail = -1;
+		for( int i = 1; i < (int)( sizeof( mArray ) / sizeof( mArray[0] ) ); i++ ) {
+			if( NULL == mArray[i] ) {
+				avail = i;
+				break;
+			}
+		}
+
+		if( avail > 0 ) {
+			mFreeCount += eColPerRow;
+			mArray[ avail ] = ( SP_SessionEntry_t * )calloc(
+					eColPerRow, sizeof( SP_SessionEntry_t ) );
+			for( int i = eColPerRow - 1; i >= 0; i-- ) {
+				mArray[ avail ] [ i ].mNext = mFreeList;
+				mFreeList = eColPerRow * avail + i;
+			}
+		}
+	}
+
+	if( mFreeList > 0 ) {
+		key = mFreeList;
+		--mFreeCount;
+
+		int row = mFreeList / eColPerRow, col = mFreeList % eColPerRow;
+
+		*seq = mArray[ row ] [ col ].mSeq;
+		mFreeList = mArray[ row ] [ col ].mNext;
+	}
+
+	return key;
+}
+
 int SP_SessionManager :: getCount()
 {
 	return mCount;
 }
 
-void SP_SessionManager :: put( uint16_t key, SP_Session * session, uint16_t * seq )
+int SP_SessionManager :: getFreeCount()
 {
-	int row = key / 1024, col = key % 1024;
+	return mFreeCount;
+}
 
-	if( NULL == mArray[ row ] ) {
-		mArray[ row ] = ( SP_SessionEntry_t * )calloc(
-			1024, sizeof( SP_SessionEntry_t ) );
-	}
+void SP_SessionManager :: put( uint16_t key, uint16_t seq, SP_Session * session )
+{
+	int row = key / eColPerRow, col = key % eColPerRow;
+
+	assert( NULL != mArray[ row ] );
 
 	SP_SessionEntry_t * list = mArray[ row ];
+
+	assert( NULL == list[ col ].mSession );
+	assert( seq == list[ col ].mSeq );
+
 	list[ col ].mSession = session;
-	*seq = list[ col ].mSeq;
 
 	mCount++;
 }
 
 SP_Session * SP_SessionManager :: get( uint16_t key, uint16_t * seq )
 {
-	int row = key / 1024, col = key % 1024;
+	int row = key / eColPerRow, col = key % eColPerRow;
 
 	SP_Session * ret = NULL;
 
@@ -91,19 +138,24 @@ SP_Session * SP_SessionManager :: get( uint16_t key, uint16_t * seq )
 	return ret;
 }
 
-SP_Session * SP_SessionManager :: remove( uint16_t key, uint16_t * seq )
+SP_Session * SP_SessionManager :: remove( uint16_t key, uint16_t seq )
 {
-	int row = key / 1024, col = key % 1024;
+	int row = key / eColPerRow, col = key % eColPerRow;
 
 	SP_Session * ret = NULL;
 
 	SP_SessionEntry_t * list = mArray[ row ];
 	if( NULL != list ) {
+		assert( seq == list[ col ].mSeq );
+
 		ret = list[ col ].mSession;
-		if( NULL != seq ) * seq = list[ col ].mSeq;
 
 		list[ col ].mSession = NULL;
 		list[ col ].mSeq++;
+
+		list[ col ].mNext = mFreeList;
+		mFreeList = key;
+		++mFreeCount;
 
 		mCount--;
 	}
