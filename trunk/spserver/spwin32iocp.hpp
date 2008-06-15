@@ -45,13 +45,13 @@ typedef struct tagSP_IocpSession {
 
 	SP_IocpEvent_t mRecvEvent;
 	SP_IocpEvent_t mSendEvent;
-	SP_IocpEvent_t mCloseEvent;
+	OVERLAPPED mFreeEvent;
 } SP_IocpSession_t;
 
 class SP_IocpEventCallback {
 public:
 
-	enum { eKeyUnknown, eKeyAccept, eKeyMsgQueue };
+	enum { eKeyUnknown, eKeyAccept, eKeyMsgQueue, eKeyFree };
 
 	static BOOL addSession( SP_IocpEventArg * eventArg, HANDLE client, SP_Session * session );
 	static BOOL addRecv( SP_Session * session );

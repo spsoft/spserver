@@ -27,6 +27,7 @@
 
 #ifdef WIN32
 #include <winsock2.h>
+#pragma warning(disable: 4996)
 #else
 #include <unistd.h>
 #endif
