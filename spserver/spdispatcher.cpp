@@ -223,11 +223,6 @@ int SP_Dispatcher :: push( int fd, SP_Handler * handler, int needStart )
 int SP_Dispatcher :: push( int fd, SP_Handler * handler,
 		SP_IOChannel * ioChannel, int needStart )
 {
-	uint16_t seq = 0;
-	if( NULL != mEventArg->getSessionManager()->get( fd, &seq ) ) {
-		return -1;
-	}
-
 	SP_PushArg_t * arg = (SP_PushArg_t*)malloc( sizeof( SP_PushArg_t ) );
 	arg->mType = 0;
 	arg->mFd = fd;
