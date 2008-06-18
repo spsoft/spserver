@@ -1,19 +1,17 @@
 /*
- * Copyright 2007 Stephen Liu
+ * Copyright 2007-2008 Stephen Liu
  * For license terms, see the file COPYING along with this library.
  */
 
 #include <stdio.h>
-#include <syslog.h>
 #include <string.h>
-#include <unistd.h>
 #include <time.h>
-#include <unistd.h>
 #include <fcntl.h>
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include <ctype.h>
+
+#include "spporting.hpp"
 
 #include "spgnutls.hpp"
 #include "spsession.hpp"
@@ -22,6 +20,12 @@
 #include "sputils.hpp"
 #include "spmsgblock.hpp"
 #include "spioutils.hpp"
+
+#ifdef WIN32
+#ifndef HAVE_SSIZE_T
+typedef long ssize_t;
+#endif
+#endif
 
 #include <gnutls/gnutls.h>
 #include "spgcrypt.h"
@@ -69,7 +73,7 @@ int SP_GnutlsChannel :: init( int fd )
 	SP_IOUtils::setBlock( fd );
 	int ret = gnutls_handshake( mTls );
 	if( ret < 0 ) {
-		syslog( LOG_EMERG, "gnutls_handshake fail, %s", gnutls_strerror( ret ) );
+		sp_syslog( LOG_EMERG, "gnutls_handshake fail, %s", gnutls_strerror( ret ) );
 		return -1;
 	}
 
@@ -86,7 +90,7 @@ int SP_GnutlsChannel :: receive( SP_Session * session )
 	if( ret > 0 ) {
 		session->getInBuffer()->append( buffer, ret );
 	} else if( ret < 0 ) {
-		syslog( LOG_EMERG, "gnutls_record_recv fail, %s", gnutls_strerror( ret ) );
+		sp_syslog( LOG_EMERG, "gnutls_record_recv fail, %s", gnutls_strerror( ret ) );
 	}
 
 	return ret;
@@ -134,7 +138,7 @@ int SP_GnutlsChannelFactory :: init( const char * certFile, const char * keyFile
 
 	if( ( ret = gnutls_global_init() ) < 0 )
 	{
-		syslog( LOG_ERR, "global_init: %s\n", gnutls_strerror( ret ) );
+		sp_syslog( LOG_ERR, "global_init: %s\n", gnutls_strerror( ret ) );
 		return -1;
 	}
 

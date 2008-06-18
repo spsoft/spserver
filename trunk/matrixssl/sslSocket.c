@@ -29,9 +29,11 @@
  */
 /******************************************************************************/
 
-#include <syslog.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#include "spporting.hpp"
+
 #include "sslSocket.h"
 
 /******************************************************************************/
@@ -53,7 +55,7 @@ SOCKET socketListen(short port, int *err)
 	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = INADDR_ANY;
 	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		syslog( LOG_WARNING, "Error creating listen socket\n");
+		sp_syslog( LOG_WARNING, "Error creating listen socket\n");
 		*err = getSocketError();
 		return INVALID_SOCKET;
 	}
@@ -66,13 +68,13 @@ SOCKET socketListen(short port, int *err)
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&rc, sizeof(rc));
 
 	if (bind(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-		syslog( LOG_WARNING,
+		sp_syslog( LOG_WARNING,
 			"Can't bind socket. Port in use or insufficient privilege\n");
 		*err = getSocketError();
 		return INVALID_SOCKET;
 	}
 	if (listen(fd, SOMAXCONN) < 0) {
-		syslog( LOG_WARNING, "Error listening on socket\n");
+		sp_syslog( LOG_WARNING, "Error listening on socket\n");
 		*err = getSocketError();
 		return INVALID_SOCKET;
 	}
@@ -97,7 +99,7 @@ SOCKET socketAccept(SOCKET listenfd, int *err)
 			== INVALID_SOCKET) {
 		*err = getSocketError();
 		if (*err != WOULD_BLOCK) {
-			syslog( LOG_WARNING, "Error %d accepting new socket\n", *err);
+			sp_syslog( LOG_WARNING, "Error %d accepting new socket\n", *err);
 		}
 		return INVALID_SOCKET;
 	}
@@ -128,7 +130,7 @@ SOCKET socketConnect(char *ip, short port, int *err)
 	int					rc;
 
 	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		syslog( LOG_WARNING, "Error creating socket\n");
+		sp_syslog( LOG_WARNING, "Error creating socket\n");
 		*err = getSocketError();
 		return INVALID_SOCKET;
 	}
@@ -223,7 +225,7 @@ readMore:
 		socketAssert(0);
 		return -1;
 	} else {
-		syslog( LOG_WARNING, "sslRead error in sslAccept\n");
+		sp_syslog( LOG_WARNING, "sslRead error in sslAccept\n");
 		sslFreeConnection(&conn);
 		return -1;
 	}
@@ -299,7 +301,7 @@ sslConn_t *sslDoHandshake(sslConn_t *conn, short cipherSuite)
 	Send the hello with a blocking write
 */
 	if (psSocketWrite(conn->fd, &conn->outsock) < 0) {
-		syslog( LOG_WARNING, "Error in socketWrite\n");
+		sp_syslog( LOG_WARNING, "Error in socketWrite\n");
 		goto error;
 	}
 	conn->outsock.start = conn->outsock.end = conn->outsock.buf;
@@ -322,10 +324,10 @@ readMore:
 			goto readMore;
 		}
 	} else if (rc > 0) {
-		syslog( LOG_WARNING, "sslRead got %d data in sslDoHandshake %s\n", rc, buf);
+		sp_syslog( LOG_WARNING, "sslRead got %d data in sslDoHandshake %s\n", rc, buf);
 		goto readMore;
 	} else {
-		syslog( LOG_WARNING, "sslRead error in sslDoHandhake\n");
+		sp_syslog( LOG_WARNING, "sslRead error in sslDoHandhake\n");
 		goto error;
 	}
 
@@ -467,7 +469,7 @@ decodeMore:
 		if (bytes == SOCKET_ERROR) {
 			*status = getSocketError();
 			if (*status != WOULD_BLOCK) {
-				syslog( LOG_WARNING, "Socket send error:  %d\n", *status);
+				sp_syslog( LOG_WARNING, "Socket send error:  %d\n", *status);
 				goto readError;
 			}
 			*status = 0;
@@ -503,7 +505,7 @@ decodeMore:
 	Since we're closing on error, we don't worry too much about a clean flush.
 */
 	case SSL_ERROR:
-		syslog( LOG_WARNING, "SSL: Closing on protocol error %d\n", error);
+		sp_syslog( LOG_WARNING, "SSL: Closing on protocol error %d\n", error);
 		if (cp->inbuf.start < cp->inbuf.end) {
 			setSocketNonblock(cp->fd);
 			bytes = send(cp->fd, (char *)cp->inbuf.start, 
@@ -519,7 +521,7 @@ decodeMore:
 			*status = SSLSOCKET_CLOSE_NOTIFY;
 			goto readZero;
 		}
-		syslog( LOG_WARNING, "SSL: Closing on client alert %d: %d\n",
+		sp_syslog( LOG_WARNING, "SSL: Closing on client alert %d: %d\n",
 			alertLevel, alertDescription);
 		goto readError;
 /*

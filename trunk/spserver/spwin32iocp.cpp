@@ -18,6 +18,7 @@
 #include "spioutils.hpp"
 #include "spmsgblock.hpp"
 #include "spwin32buffer.hpp"
+#include "spiochannel.hpp"
 
 BOOL SP_IocpEventCallback :: addSession( SP_IocpEventArg * eventArg, HANDLE client, SP_Session * session )
 {
@@ -132,8 +133,7 @@ void SP_IocpEventCallback :: onRecv( SP_IocpSession_t * iocpSession )
 
 	session->setReading( 0 );
 
-	int len = spwin32buffer_read( session->getInBuffer()->mBuffer,
-			(int)iocpSession->mHandle, -1 );
+	int len = session->getIOChannel()->receive( session );
 
 	if( len > 0 ) {
 		session->addRead( len );
@@ -245,7 +245,7 @@ void SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession )
 	int ret = 0;
 
 	if( session->getOutList()->getCount() > 0 ) {
-		int len = SP_IocpEventHelper::transmit( session );
+		int len = session->getIOChannel()->transmit( session );
 
 		if( len > 0 ) {
 			if( session->getOutList()->getCount() > 0 ) {
@@ -321,6 +321,7 @@ BOOL SP_IocpEventCallback :: onAccept( SP_IocpAcceptArg_t * acceptArg )
 	session->getRequest()->setClientIP( clientIP );
 
 	session->setHandler( acceptArg->mHandlerFactory->create() );	
+	session->setIOChannel( acceptArg->mIOChannelFactory->create() );
 
 	if( addSession( eventArg, acceptArg->mClientSocket, session ) ) {
 		eventArg->getSessionManager()->put( sid.mKey, sid.mSeq, session );
@@ -846,10 +847,24 @@ void SP_IocpEventHelper :: start( void * arg )
 	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
 	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
 
+	SP_IOChannel * ioChannel = session->getIOChannel();
+
+	int initRet = ioChannel->init( (int)iocpSession->mHandle );
+
 	SP_Response * response = new SP_Response( session->getSid() );
 	int startRet = session->getHandler()->start( session->getRequest(), response );
 
-	session->setStatus( 0 == startRet ? SP_Session::eNormal : SP_Session::eWouldExit );
+	int status = SP_Session::eWouldExit;
+
+	if( 0 == initRet ) {
+		if( 0 == startRet ) status = SP_Session::eNormal;
+	} else {
+		delete response;
+		// make an empty response
+		response = new SP_Response( session->getSid() );
+	}
+
+	session->setStatus( status );
 	session->setRunning( 0 );
 
 	eventArg->getResponseQueue()->push( response );
@@ -859,76 +874,3 @@ void SP_IocpEventHelper :: doCompletion( SP_IocpEventArg * eventArg, SP_Message 
 {
 	eventArg->getOutputResultQueue()->push( msg );
 }
-
-int SP_IocpEventHelper :: transmit( SP_Session * session )
-{
-	const int SP_MAX_IOV = MSG_MAXIOVLEN;
-
-	SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
-	SP_IocpEventArg * eventArg = iocpSession->mEventArg;
-
-	SP_ArrayList * outList = session->getOutList();
-	size_t outOffset = session->getOutOffset();
-
-	struct iovec iovArray[ SP_MAX_IOV ];
-	memset( iovArray, 0, sizeof( iovArray ) );
-
-	int iovSize = 0;
-
-	for( int i = 0; i < outList->getCount() && iovSize < SP_MAX_IOV; i++ ) {
-		SP_Message * msg = (SP_Message*)outList->getItem( i );
-
-		if( outOffset >= msg->getMsg()->getSize() ) {
-			outOffset -= msg->getMsg()->getSize();
-		} else {
-			iovArray[ iovSize ].iov_base = (char*)msg->getMsg()->getBuffer() + outOffset;
-			iovArray[ iovSize++ ].iov_len = msg->getMsg()->getSize() - outOffset;
-			outOffset = 0;
-		}
-
-		SP_MsgBlockList * blockList = msg->getFollowBlockList();
-		for( int j = 0; j < blockList->getCount() && iovSize < SP_MAX_IOV; j++ ) {
-			SP_MsgBlock * block = (SP_MsgBlock*)blockList->getItem( j );
-
-			if( outOffset >= block->getSize() ) {
-				outOffset -= block->getSize();
-			} else {
-				iovArray[ iovSize ].iov_base = (char*)block->getData() + outOffset;
-				iovArray[ iovSize++ ].iov_len = block->getSize() - outOffset;
-				outOffset = 0;
-			}
-		}
-	}
-
-	int len = spwin32_writev( (SOCKET)iocpSession->mHandle, iovArray, iovSize );
-
-	if( len > 0 ) {
-		session->addWrite( len );
-		outOffset = session->getOutOffset() + len;
-
-		for( ; outList->getCount() > 0; ) {
-			SP_Message * msg = (SP_Message*)outList->getItem( 0 );
-			if( outOffset >= msg->getTotalSize() ) {
-				msg = (SP_Message*)outList->takeItem( 0 );
-				outOffset = outOffset - msg->getTotalSize();
-
-				int index = msg->getToList()->find( session->getSid() );
-				if( index >= 0 ) msg->getToList()->take( index );
-				msg->getSuccess()->add( session->getSid() );
-
-				if( msg->getToList()->getCount() <= 0 ) {
-					eventArg->getOutputResultQueue()->push( msg );
-				}
-			} else {
-				break;
-			}
-		}
-
-		session->setOutOffset( outOffset );
-	}
-
-	if( len > 0 && outList->getCount() > 0 ) transmit( session );
-
-	return len;
-}
-

@@ -1,15 +1,15 @@
 /*
- * Copyright 2007 Stephen Liu
+ * Copyright 2007-2008 Stephen Liu
  * For license terms, see the file COPYING along with this library.
  */
 
-#include <syslog.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <assert.h>
 #include <sys/types.h>
+
+#include "spporting.hpp"
 
 #include "spmatrixssl.hpp"
 #include "spioutils.hpp"
@@ -43,7 +43,7 @@ int SP_MatrixsslChannel :: init( int fd )
 	SP_IOUtils::setNonblock( fd );
 
 	if( 0 != ret ) {
-		syslog( LOG_EMERG, "sslAccept fail" );
+		sp_syslog( LOG_EMERG, "sslAccept fail" );
 		return -1;
 	}
 
@@ -58,7 +58,7 @@ int SP_MatrixsslChannel :: receive( SP_Session * session )
 	if( ret > 0 ) {
 		session->getInBuffer()->append( buffer, ret );
 	} else if( ret < 0 ) {
-		syslog( LOG_EMERG, "sslRead fail" );
+		sp_syslog( LOG_EMERG, "sslRead fail" );
 	}
 
 	return ret;
@@ -98,12 +98,12 @@ SP_IOChannel * SP_MatrixsslChannelFactory :: create() const
 int SP_MatrixsslChannelFactory :: init( const char * certFile, const char * keyFile )
 {
 	if( matrixSslOpen() < 0 ) {
-		syslog( LOG_WARNING, "matrixSslOpen failed" );
+		sp_syslog( LOG_WARNING, "matrixSslOpen failed" );
 	}
 
 	if( matrixSslReadKeys( &mKeys, certFile, keyFile, NULL, NULL ) < 0 ) {
-		syslog( LOG_WARNING, "Error reading or parsing %s or %s.", certFile, keyFile );
-        }
+		sp_syslog( LOG_WARNING, "Error reading or parsing %s or %s.", certFile, keyFile );
+	}
 
 	return 0;
 }

@@ -1,19 +1,16 @@
 /*
- * Copyright 2007 Stephen Liu
+ * Copyright 2007-2008 Stephen Liu
  * For license terms, see the file COPYING along with this library.
  */
 
 #include <stdio.h>
-#include <syslog.h>
 #include <string.h>
-#include <unistd.h>
 #include <time.h>
-#include <unistd.h>
 #include <fcntl.h>
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+
+#include  "spporting.hpp"
 
 #include <openssl/rsa.h>
 #include <openssl/crypto.h>
@@ -56,7 +53,7 @@ int SP_OpensslChannel :: init( int fd )
 	int ret = SSL_accept( mSsl );
 	if( ret <= 0 ) {
 		ERR_error_string_n( SSL_get_error( mSsl, ret ), errmsg, sizeof( errmsg ) );
-		syslog( LOG_EMERG, "SSL_accept fail, %s", errmsg );
+		sp_syslog( LOG_EMERG, "SSL_accept fail, %s", errmsg );
 		return -1;
 	}
 
@@ -64,23 +61,23 @@ int SP_OpensslChannel :: init( int fd )
 
 	/* Get the cipher - opt */
 
-	syslog( LOG_NOTICE, "SSL connection using %s", SSL_get_cipher( mSsl ) );
+	sp_syslog( LOG_NOTICE, "SSL connection using %s", SSL_get_cipher( mSsl ) );
   
 	/* Get client's certificate (note: beware of dynamic allocation) - opt */
 
 	X509 * client_cert = SSL_get_peer_certificate( mSsl );
 	if( client_cert != NULL ) {
-		syslog( LOG_NOTICE, "Client certificate:" );
+		sp_syslog( LOG_NOTICE, "Client certificate:" );
  
 		char * str = X509_NAME_oneline( X509_get_subject_name( client_cert ), 0, 0 );
 		if( NULL != str ) {
-			syslog( LOG_NOTICE, "subject: %s", str );
+			sp_syslog( LOG_NOTICE, "subject: %s", str );
 			OPENSSL_free( str );
 		}
 
 		str = X509_NAME_oneline( X509_get_issuer_name( client_cert ), 0, 0 );
 		if( NULL != str ) {
-			syslog( LOG_NOTICE, "issuer: %s", str );
+			sp_syslog( LOG_NOTICE, "issuer: %s", str );
 			OPENSSL_free( str );
 		}
 
@@ -89,7 +86,7 @@ int SP_OpensslChannel :: init( int fd )
 
 		X509_free( client_cert );
 	} else {
-		syslog( LOG_WARNING, "Client does not have certificate" );
+		sp_syslog( LOG_WARNING, "Client does not have certificate" );
 	}
 
 	return 0;
@@ -104,7 +101,7 @@ int SP_OpensslChannel :: receive( SP_Session * session )
 		session->getInBuffer()->append( buffer, ret );
 	} else if( ret < 0 ) {
 		ERR_error_string_n( ERR_get_error(), buffer, sizeof( buffer ) );
-		syslog( LOG_EMERG, "SSL_read fail, %s", buffer );
+		sp_syslog( LOG_EMERG, "SSL_read fail, %s", buffer );
 	}
 
 	return ret;
@@ -159,14 +156,14 @@ int SP_OpensslChannelFactory :: init( const char * certFile, const char * keyFil
 	mCtx = SSL_CTX_new( SSLv23_server_method() );
 	if( ! mCtx ) {
 		ERR_error_string_n( ERR_get_error(), errmsg, sizeof( errmsg ) );
-		syslog( LOG_WARNING, "SSL_CTX_new fail, %s", errmsg );
+		sp_syslog( LOG_WARNING, "SSL_CTX_new fail, %s", errmsg );
 		ret = -1;
 	}
 
 	if( 0 == ret ) {
 		if( SSL_CTX_use_certificate_file( mCtx, certFile, SSL_FILETYPE_PEM ) <= 0 ) {
 			ERR_error_string_n( ERR_get_error(), errmsg, sizeof( errmsg ) );
-			syslog( LOG_WARNING, "SSL_CTX_use_certificate_file fail, %s", errmsg );
+			sp_syslog( LOG_WARNING, "SSL_CTX_use_certificate_file fail, %s", errmsg );
 			ret = -1;
 		}
 	}
@@ -174,7 +171,7 @@ int SP_OpensslChannelFactory :: init( const char * certFile, const char * keyFil
 	if( 0 == ret ) {
 		if( SSL_CTX_use_PrivateKey_file( mCtx, keyFile, SSL_FILETYPE_PEM ) <= 0 ) {
 			ERR_error_string_n( ERR_get_error(), errmsg, sizeof( errmsg ) );
-			syslog( LOG_WARNING, "SSL_CTX_use_PrivateKey_file fail, %s", errmsg );
+			sp_syslog( LOG_WARNING, "SSL_CTX_use_PrivateKey_file fail, %s", errmsg );
 			ret = -1;
 		}
 	}
@@ -182,7 +179,7 @@ int SP_OpensslChannelFactory :: init( const char * certFile, const char * keyFil
 	if( 0 == ret ) {
 		if( !SSL_CTX_check_private_key( mCtx ) ) {
 			ERR_error_string_n( ERR_get_error(), errmsg, sizeof( errmsg ) );
-			syslog( LOG_WARNING, "Private key does not match the certificate public key, %s", errmsg );
+			sp_syslog( LOG_WARNING, "Private key does not match the certificate public key, %s", errmsg );
 			ret = -1;
 		}
 	}

@@ -3,6 +3,42 @@ Microsoft Developer Studio Workspace File, Format Version 6.00
 
 ###############################################################################
 
+Project: "spgnutls"=".\spgnutls\spgnutls.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "spmatrixssl"=".\spmatrixssl\spmatrixssl.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "spopenssl"=".\spopenssl\spopenssl.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "spserver"=".\spserver.dsp" - Package Owner=<4>
 
 Package=<5>
@@ -52,6 +88,18 @@ Package=<4>
 ###############################################################################
 
 Project: "testiocphttp"=".\testiocphttp\testiocphttp.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "testiocphttps"=".\testiocphttps\testiocphttps.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
