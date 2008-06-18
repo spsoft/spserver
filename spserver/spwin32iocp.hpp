@@ -14,12 +14,14 @@
 #include "spiocpevent.hpp"
 
 class SP_HandlerFactory;
+class SP_IOChannelFactory;
 class SP_Session;
 class SP_Message;
 class SP_Response;
 
 typedef struct tagSP_IocpAcceptArg {
 	SP_HandlerFactory * mHandlerFactory;
+	SP_IOChannelFactory * mIOChannelFactory;
 
 	int mReqQueueSize;
 	int mMaxConnections;
@@ -89,8 +91,6 @@ public:
 
 	static void doClose( SP_Session * session );
 	static void close( void * arg );
-
-	static int transmit( SP_Session * session );
 
 	static void doDecodeForWork( SP_Session * session );
 

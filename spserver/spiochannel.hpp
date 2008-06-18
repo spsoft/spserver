@@ -9,7 +9,11 @@
 class SP_Session;
 class SP_Buffer;
 
-struct evbuffer;
+#ifdef WIN32
+typedef struct spwin32buffer sp_evbuffer_t;
+#else
+typedef struct evbuffer sp_evbuffer_t;
+#endif
 
 struct iovec;
 
@@ -30,7 +34,7 @@ public:
 	virtual int transmit( SP_Session * session );
 
 protected:
-	static struct evbuffer * getEvBuffer( SP_Buffer * buffer );
+	static sp_evbuffer_t * getEvBuffer( SP_Buffer * buffer );
 
 	// returns the number of bytes written, or -1 if an error occurred.
 	virtual int write_vec( struct iovec * iovArray, int iovSize ) = 0;

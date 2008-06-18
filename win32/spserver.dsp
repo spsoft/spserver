@@ -105,6 +105,10 @@ SOURCE=..\spserver\sphttpmsg.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\spserver\spiochannel.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\spserver\spiocpdispatcher.cpp
 # End Source File
 # Begin Source File
@@ -190,6 +194,10 @@ SOURCE=..\spserver\sphttp.hpp
 # Begin Source File
 
 SOURCE=..\spserver\sphttpmsg.hpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\spserver\spiochannel.hpp
 # End Source File
 # Begin Source File
 

@@ -21,6 +21,7 @@
 #include "spexecutor.hpp"
 #include "sputils.hpp"
 #include "spioutils.hpp"
+#include "spiochannel.hpp"
 
 #include "spiocpevent.hpp"
 
@@ -175,6 +176,7 @@ typedef struct tagSP_IocpPushArg {
 	// for push fd
 	int mFd;
 	SP_Handler * mHandler;
+	SP_IOChannel * mIOChannel;
 	int mNeedStart;
 
 	// for push timer
@@ -199,6 +201,7 @@ void SP_IocpDispatcher :: onPush( void * queueData, void * arg )
 
 		session->setHandler( pushArg->mHandler );
 		session->setArg( eventArg );
+		session->setIOChannel( pushArg->mIOChannel );
 
 		if( SP_IocpEventCallback::addSession( eventArg, (HANDLE)pushArg->mFd, session ) ) {
 			eventArg->getSessionManager()->put( sid.mKey, sid.mSeq, session );
@@ -238,11 +241,19 @@ void SP_IocpDispatcher :: onPush( void * queueData, void * arg )
 
 int SP_IocpDispatcher :: push( int fd, SP_Handler * handler, int needStart )
 {
+	SP_IOChannel * ioChannel = new SP_DefaultIOChannel();
+	return push( fd, handler, ioChannel, needStart );
+}
+
+int SP_IocpDispatcher :: push( int fd, SP_Handler * handler,
+		SP_IOChannel * ioChannel, int needStart )
+{
 	SP_IocpPushArg_t * arg = (SP_IocpPushArg_t*)malloc( sizeof( SP_IocpPushArg_t ) );
 	arg->mType = 0;
 	arg->mFd = fd;
 	arg->mHandler = handler;
 	arg->mNeedStart = needStart;
+	arg->mIOChannel = ioChannel;
 
 	SP_IOUtils::setNonblock( fd );
 

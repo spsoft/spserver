@@ -96,6 +96,11 @@ void SP_IocpLFServer :: setReqQueueSize( int reqQueueSize, const char * refusedM
 	mAcceptArg->mRefusedMsg = strdup( refusedMsg );
 }
 
+void SP_IocpLFServer :: setIOChannelFactory( SP_IOChannelFactory * ioChannelFactory )
+{
+	mAcceptArg->mIOChannelFactory = ioChannelFactory;
+}
+
 void SP_IocpLFServer :: shutdown()
 {
 	mIsShutdown = 1;
@@ -205,6 +210,10 @@ int SP_IocpLFServer :: run()
 				mEventArg->getCompletionPort(), SP_IocpEventCallback::eKeyAccept, 0 ) ) {
 			sp_syslog( LOG_ERR, "CreateIoCompletionPort fail, errno %d", WSAGetLastError() );
 			return -1;		
+		}
+
+		if( NULL == mAcceptArg->mIOChannelFactory ) {
+			mAcceptArg->mIOChannelFactory = new SP_DefaultIOChannelFactory();
 		}
 
 		sp_thread_t thread;

@@ -9,6 +9,7 @@
 #include "spthread.hpp"
 
 class SP_HandlerFactory;
+class SP_IOChannelFactory;
 class SP_Session;
 class SP_Executor;
 
@@ -21,6 +22,7 @@ public:
 	void setMaxConnections( int maxConnections );
 	void setMaxThreads( int maxThreads );
 	void setReqQueueSize( int reqQueueSize, const char * refusedMsg );
+	void setIOChannelFactory( SP_IOChannelFactory * ioChannelFactory );
 
 	void shutdown();
 	int isRunning();
@@ -29,6 +31,7 @@ public:
 
 private:
 	SP_HandlerFactory * mHandlerFactory;
+	SP_IOChannelFactory * mIOChannelFactory;
 
 	char mBindIP[ 64 ];
 	int mPort;

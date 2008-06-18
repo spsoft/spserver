@@ -10,14 +10,20 @@
 
 #include "spiochannel.hpp"
 
-#include "speventcb.hpp"
 #include "sputils.hpp"
 #include "spresponse.hpp"
 #include "spsession.hpp"
 #include "spbuffer.hpp"
 #include "spmsgblock.hpp"
 
+#ifdef WIN32
+#include "spwin32buffer.hpp"
+#include "spiocpevent.hpp"
+#include "spwin32iocp.hpp"
+#else
+#include "speventcb.hpp"
 #include "event.h"
+#endif
 
 //---------------------------------------------------------
 
@@ -25,20 +31,26 @@ SP_IOChannel :: ~SP_IOChannel()
 {
 }
 
-struct evbuffer * SP_IOChannel :: getEvBuffer( SP_Buffer * buffer )
+sp_evbuffer_t * SP_IOChannel :: getEvBuffer( SP_Buffer * buffer )
 {
 	return buffer->mBuffer;
 }
 
 int SP_IOChannel :: transmit( SP_Session * session )
 {
-#ifdef IOV_MAX
-	const static int SP_MAX_IOV = IOV_MAX;
-#else
-	const static int SP_MAX_IOV = 8;
-#endif
+#ifdef WIN32
+	const static int SP_MAX_IOV = MSG_MAXIOVLEN;
 
+    SP_IocpSession_t * iocpSession = (SP_IocpSession_t*)session->getArg();
+    SP_IocpEventArg * eventArg = iocpSession->mEventArg;
+#else
+#	ifdef IOV_MAX
+	const static int SP_MAX_IOV = IOV_MAX;
+#	else
+	const static int SP_MAX_IOV = 8;
+#	endif
 	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
+#endif
 
 	SP_ArrayList * outList = session->getOutList();
 	size_t outOffset = session->getOutOffset();
@@ -131,7 +143,11 @@ int SP_DefaultIOChannel :: init( int fd )
 
 int SP_DefaultIOChannel :: receive( SP_Session * session )
 {
+#ifdef WIN32
+	return spwin32buffer_read( getEvBuffer( session->getInBuffer() ), mFd, -1 );
+#else
 	return evbuffer_read( getEvBuffer( session->getInBuffer() ), mFd, -1 );
+#endif
 }
 
 int SP_DefaultIOChannel :: write_vec( struct iovec * iovArray, int iovSize )

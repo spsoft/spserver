@@ -17,6 +17,7 @@
 #include "spexecutor.hpp"
 #include "sputils.hpp"
 #include "spioutils.hpp"
+#include "spiochannel.hpp"
 
 SP_IocpServer :: SP_IocpServer( const char * bindIP, int port,
 		SP_HandlerFactory * handlerFactory )
@@ -27,6 +28,7 @@ SP_IocpServer :: SP_IocpServer( const char * bindIP, int port,
 	mIsRunning = 0;
 
 	mHandlerFactory = handlerFactory;
+	mIOChannelFactory = NULL;
 
 	mTimeout = 600;
 	mMaxThreads = 64;
@@ -65,6 +67,11 @@ void SP_IocpServer :: setReqQueueSize( int reqQueueSize, const char * refusedMsg
 
 	if( NULL != mRefusedMsg ) free( mRefusedMsg );
 	mRefusedMsg = strdup( refusedMsg );
+}
+
+void SP_IocpServer :: setIOChannelFactory( SP_IOChannelFactory * ioChannelFactory )
+{
+	mIOChannelFactory = ioChannelFactory;
 }
 
 void SP_IocpServer :: shutdown()
@@ -190,10 +197,15 @@ int SP_IocpServer :: start()
 				SP_IocpEventCallback::eKeyMsgQueue, SP_IocpEventCallback::onResponse, &eventArg );
 		eventArg.setResponseQueue( msgQueue );
 
+		if( NULL == mIOChannelFactory ) {
+			mIOChannelFactory = new SP_DefaultIOChannelFactory();
+		}
+
 		SP_IocpAcceptArg_t acceptArg;
 		memset( &acceptArg, 0, sizeof( acceptArg ) );
 
 		acceptArg.mHandlerFactory = mHandlerFactory;
+		acceptArg.mIOChannelFactory = mIOChannelFactory;
 		acceptArg.mReqQueueSize = mReqQueueSize;
 		acceptArg.mMaxConnections = mMaxConnections;
 		acceptArg.mRefusedMsg = mRefusedMsg;
