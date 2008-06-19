@@ -77,7 +77,7 @@ void on_read( int fd, short events, void *arg )
 	if( EV_READ & events ) {
 		int len = recv( fd, client->mBuffer, sizeof( client->mBuffer ), 0 );
 		if( len <= 0 ) {
-			if( len < 0 && EINTR != errno && EAGAIN != errno ) {
+			if( len < 0 && EAGAIN != errno ) {
 				fprintf( stderr, "#%d on_read error, count %d, errno %d, %s\n",
 						fd, client->mRecvMsgs, errno, strerror( errno ) );
 			}
@@ -111,7 +111,7 @@ void on_write( int fd, short events, void *arg )
 
 		int len = send( fd, client->mBuffer, strlen( client->mBuffer ), 0 );
 
-		if( len <= 0 && EINTR != errno && EAGAIN != errno ) {
+		if( len <= 0 && EAGAIN != errno ) {
 			fprintf( stderr, "#%d on_write error, errno %d, %s\n", fd, errno, strerror( errno ) );
 			close_client( client );
 		} else {

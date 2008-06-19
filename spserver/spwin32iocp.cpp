@@ -246,8 +246,8 @@ void SP_IocpEventCallback :: onSend( SP_IocpSession_t * iocpSession )
 
 	if( session->getOutList()->getCount() > 0 ) {
 		int len = session->getIOChannel()->transmit( session );
-
 		if( len > 0 ) {
+			session->addWrite( len );
 			if( session->getOutList()->getCount() > 0 ) {
 				if( ! addSend( session ) ) {
 					if( 0 == session->getRunning() ) {
