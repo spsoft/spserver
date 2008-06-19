@@ -56,7 +56,7 @@ testhttp: testhttp.o
 	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
 
 testhttpmsg: sputils.o sphttpmsg.o testhttpmsg.o
-	$(LINKER) $(LDFLAGS) $^ -o $@
+	$(LINKER) $(LDFLAGS) $^ -L. -o $@
 
 testdispatcher: testdispatcher.o
 	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@

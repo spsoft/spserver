@@ -111,7 +111,10 @@ int SP_IOChannel :: transmit( SP_Session * session )
 		session->setOutOffset( outOffset );
 	}
 
-	if( len > 0 && outList->getCount() > 0 ) transmit( session );
+	if( len > 0 && outList->getCount() > 0 ) {
+		int tmpLen = transmit( session );
+		if( tmpLen > 0 ) len += tmpLen;
+	}
 
 	return len;
 }

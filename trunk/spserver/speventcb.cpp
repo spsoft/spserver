@@ -166,6 +166,7 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 		int len = session->getIOChannel()->receive( session );
 
 		if( len > 0 ) {
+			session->addRead( len );
 			if( 0 == session->getRunning() ) {
 				SP_MsgDecoder * decoder = session->getRequest()->getMsgDecoder();
 				if( SP_MsgDecoder::eOK == decoder->decode( session->getInBuffer() ) ) {
@@ -174,15 +175,20 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 			}
 			addEvent( session, EV_READ, -1 );
 		} else {
-			if( EINTR != errno && EAGAIN != errno ) {
+			int saved = errno;
+			sp_syslog( LOG_NOTICE, "session(%d.%d) read error, errno %d, status %d",
+					sid.mKey, sid.mSeq, errno, session->getRunning() );
+
+			if( EAGAIN != saved ) {
 				if( 0 == session->getRunning() ) {
-					sp_syslog( LOG_NOTICE, "session(%d.%d) read error", sid.mKey, sid.mSeq );
 					SP_EventHelper::doError( session );
 				} else {
 					addEvent( session, EV_READ, -1 );
 					sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later",
 							sid.mKey, sid.mSeq );
 				}
+			} else {
+				addEvent( session, EV_READ, -1 );
 			}
 		}
 	} else {
@@ -209,14 +215,14 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 
 		if( session->getOutList()->getCount() > 0 ) {
 			int len = session->getIOChannel()->transmit( session );
-
 			if( len > 0 ) {
+				session->addWrite( len );
 				if( session->getOutList()->getCount() > 0 ) {
 					// left for next write event
 					addEvent( session, EV_WRITE, -1 );
 				}
 			} else {
-				if( EINTR != errno && EAGAIN != errno ) {
+				if( EAGAIN != errno ) {
 					ret = -1;
 					if( 0 == session->getRunning() ) {
 						sp_syslog( LOG_NOTICE, "session(%d.%d) write error", sid.mKey, sid.mSeq );
@@ -226,6 +232,8 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 						sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later, errno [%d]",
 								sid.mKey, sid.mSeq, errno );
 					}
+				} else {
+					addEvent( session, EV_WRITE, -1 );
 				}
 			}
 		}
@@ -448,11 +456,16 @@ void SP_EventHelper :: error( void * arg )
 
 	msgqueue_push( (struct event_msgqueue*)eventArg->getResponseQueue(), response );
 
+	sp_syslog( LOG_WARNING, "session(%d.%d) error, r %d(%d), w %d(%d), i %d, o %d, s %d(%d)",
+			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
+			session->getTotalWrite(), session->getWriting(),
+			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
+			eventArg->getSessionManager()->getCount(), eventArg->getSessionManager()->getFreeCount() );
+
 	// onResponse will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
 	sp_close( EVENT_FD( session->getWriteEvent() ) );
 	delete session;
-	sp_syslog( LOG_WARNING, "session(%d.%d) error, exit", sid.mKey, sid.mSeq );
 }
 
 void SP_EventHelper :: doTimeout( SP_Session * session )
@@ -494,11 +507,16 @@ void SP_EventHelper :: timeout( void * arg )
 	session->getHandler()->timeout( response );
 	msgqueue_push( (struct event_msgqueue*)eventArg->getResponseQueue(), response );
 
+	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, r %d(%d), w %d(%d), i %d, o %d, s %d(%d)",
+			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
+			session->getTotalWrite(), session->getWriting(),
+			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
+			eventArg->getSessionManager()->getCount(), eventArg->getSessionManager()->getFreeCount() );
+
 	// onResponse will ignore this session, so it's safe to destroy session here
 	session->getHandler()->close();
 	sp_close( EVENT_FD( session->getWriteEvent() ) );
 	delete session;
-	sp_syslog( LOG_WARNING, "session(%d.%d) timeout, exit", sid.mKey, sid.mSeq );
 }
 
 void SP_EventHelper :: doClose( SP_Session * session )
@@ -518,6 +536,14 @@ void SP_EventHelper :: doClose( SP_Session * session )
 void SP_EventHelper :: myclose( void * arg )
 {
 	SP_Session * session = ( SP_Session * )arg;
+	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
+	SP_Sid_t sid = session->getSid();
+
+	sp_syslog( LOG_NOTICE, "session(%d.%d) close, r %d(%d), w %d(%d), i %d, o %d, s %d(%d)",
+			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
+			session->getTotalWrite(), session->getWriting(),
+			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
+			eventArg->getSessionManager()->getCount(), eventArg->getSessionManager()->getFreeCount() );
 
 	session->getHandler()->close();
 	sp_close( EVENT_FD( session->getWriteEvent() ) );
