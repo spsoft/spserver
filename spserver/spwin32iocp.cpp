@@ -53,8 +53,6 @@ BOOL SP_IocpEventCallback :: addSession( SP_IocpEventArg * eventArg, HANDLE clie
 		}
 	}
 
-	if( ret ) ret = addRecv( session );
-
 	if( ! ret ) {
 		sp_close( (SOCKET)client );
 
