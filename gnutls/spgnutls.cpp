@@ -132,7 +132,9 @@ SP_IOChannel * SP_GnutlsChannelFactory :: create() const
 
 int SP_GnutlsChannelFactory :: init( const char * certFile, const char * keyFile )
 {
+#ifndef WIN32
 	sp_init_gcrypt_pthread();
+#endif
 
 	int ret = 0;
 
