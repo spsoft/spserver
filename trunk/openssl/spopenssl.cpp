@@ -144,7 +144,11 @@ int SP_OpensslChannelFactory :: init( const char * certFile, const char * keyFil
 	snprintf( (char*)strRand, sizeof( strRand ), "%d%ld", getpid(), time(NULL) );
 	RAND_seed( strRand, sizeof( strRand ) );
 
+#ifdef WIN32
+	RAND_screen();
+#else
 	RAND_load_file( "/dev/urandom", 256 );
+#endif
 
 	int ret = 0;
 	char errmsg[ 256 ] = { 0 };
