@@ -21,7 +21,10 @@ typedef struct tagSP_Sid {
 
 	enum {
 		eTimerKey = 0,
-		eTimerSeq = 65535
+		eTimerSeq = 65535,
+
+		ePushKey = 1,
+		ePushSeq = 65535
 	};
 } SP_Sid_t;
 

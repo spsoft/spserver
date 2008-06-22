@@ -109,7 +109,7 @@ int SP_OnlineSidList :: getCount()
 
 class SP_ChatHandler : public SP_Handler {
 public:
-	SP_ChatHandler( SP_OnlineSidList * onlineSidList );
+	SP_ChatHandler( SP_OnlineSidList * onlineSidList, int chatID );
 	virtual ~SP_ChatHandler();
 
 	virtual int start( SP_Request * request, SP_Response * response );
@@ -125,6 +125,7 @@ public:
 
 private:
 	SP_Sid_t mSid;
+	int mChatID;
 
 	SP_OnlineSidList * mOnlineSidList;
 
@@ -135,9 +136,10 @@ private:
 
 int SP_ChatHandler :: mMsgSeq = 0;
 
-SP_ChatHandler :: SP_ChatHandler( SP_OnlineSidList * onlineSidList )
+SP_ChatHandler :: SP_ChatHandler( SP_OnlineSidList * onlineSidList, int chatID )
 {
 	memset( &mSid, 0, sizeof( mSid ) );
+	mChatID = chatID;
 
 	mOnlineSidList = onlineSidList;
 }
@@ -166,13 +168,9 @@ int SP_ChatHandler :: start( SP_Request * request, SP_Response * response )
 
 	char buffer[ 128 ] = { 0 };
 	snprintf( buffer, sizeof( buffer ),
-		"Welcome %d to chat server, enter 'quit' to quit.\r\n", mSid.mKey );
+		"Welcome %d to chat server, enter 'quit' to quit.\r\n", mChatID );
 	response->getReply()->getMsg()->append( buffer );
 	response->getReply()->setCompletionKey( ++mMsgSeq );
-
-	snprintf( buffer, sizeof( buffer ), "SYS : %d online\r\n", mSid.mKey);
-
-	broadcast( response, buffer );
 
 	mOnlineSidList->add( mSid );
 
@@ -186,12 +184,12 @@ int SP_ChatHandler :: handle( SP_Request * request, SP_Response * response )
 	char buffer[ 256 ] = { 0 };
 
 	if( 0 != strcasecmp( (char*)decoder->getMsg(), "quit" ) ) {
-		snprintf( buffer, sizeof( buffer ), "%d say: %s\r\n", mSid.mKey, (char*)decoder->getMsg() );
+		snprintf( buffer, sizeof( buffer ), "%d say: %s\r\n", mChatID, (char*)decoder->getMsg() );
 		broadcast( response, buffer );
 
 		return 0;
 	} else {
-		snprintf( buffer, sizeof( buffer ), "SYS : %d normal offline\r\n", mSid.mKey );
+		snprintf( buffer, sizeof( buffer ), "SYS : %d normal offline\r\n", mChatID );
 		broadcast( response, buffer, &mSid );
 
 		response->getReply()->getMsg()->append( "SYS : Byebye\r\n" );
@@ -204,7 +202,7 @@ int SP_ChatHandler :: handle( SP_Request * request, SP_Response * response )
 void SP_ChatHandler :: error( SP_Response * response )
 {
 	char buffer[ 64 ] = { 0 };
-	snprintf( buffer, sizeof( buffer ), "SYS : %d error offline\r\n", mSid.mKey );
+	snprintf( buffer, sizeof( buffer ), "SYS : %d error offline\r\n", mChatID );
 
 	broadcast( response, buffer, &mSid );
 }
@@ -212,7 +210,7 @@ void SP_ChatHandler :: error( SP_Response * response )
 void SP_ChatHandler :: timeout( SP_Response * response )
 {
 	char buffer[ 64 ] = { 0 };
-	snprintf( buffer, sizeof( buffer ), "SYS : %d timeout offline\r\n", mSid.mKey );
+	snprintf( buffer, sizeof( buffer ), "SYS : %d timeout offline\r\n", mChatID );
 
 	broadcast( response, buffer, &mSid );
 }
@@ -293,6 +291,7 @@ int main( int argc, char * argv[] )
 	assert( 0 == sp_initsock() );
 
 	SP_OnlineSidList onlineSidList;
+	int chatID = 0;
 
 	int maxConnections = 100, reqQueueSize = 10;
 	const char * refusedMsg = "System busy, try again later.";
@@ -313,7 +312,21 @@ int main( int argc, char * argv[] )
 					send( fd, refusedMsg, strlen( refusedMsg ), 0 );
 					sp_close( fd );
 				} else {
-					dispatcher.push( fd, new SP_ChatHandler( &onlineSidList ) );
+
+					char buffer[ 256 ] = { 0 };
+					snprintf( buffer, sizeof( buffer ), "SYS : %d online\r\n", ++chatID );
+
+					SP_Message * msg = new SP_Message();
+					onlineSidList.copy( msg->getToList(), NULL );
+					msg->getMsg()->append( buffer );
+
+					SP_Sid_t sid = { SP_Sid_t::ePushKey, SP_Sid_t::ePushSeq };
+					SP_Response * response = new SP_Response( sid );
+					response->addMessage( msg );
+
+					dispatcher.push( response );
+
+					dispatcher.push( fd, new SP_ChatHandler( &onlineSidList, chatID ) );
 				}
 			} else {
 				break;

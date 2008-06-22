@@ -380,7 +380,8 @@ void SP_EventCallback :: addEvent( SP_Session * session, short events, int fd )
 
 int SP_EventHelper :: isSystemSid( SP_Sid_t * sid )
 {
-	return sid->mKey == SP_Sid_t::eTimerKey && sid->mSeq == SP_Sid_t::eTimerSeq;
+	return ( sid->mKey == SP_Sid_t::eTimerKey && sid->mSeq == SP_Sid_t::eTimerSeq )
+			|| ( sid->mKey == SP_Sid_t::ePushKey && sid->mSeq == SP_Sid_t::ePushSeq );
 }
 
 void SP_EventHelper :: doWork( SP_Session * session )
