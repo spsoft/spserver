@@ -42,7 +42,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\..\spserver" /I "..\..\openssl" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
 # ADD BASE RSC /l 0x804 /d "NDEBUG"
 # ADD RSC /l 0x804 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -50,7 +50,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 spserver.lib ws2_32.lib MSVCRTD.LIB /nologo /subsystem:console /machine:I386 /libpath:"..\Release"
+# ADD LINK32 libeay32MT.lib ssleay32MT.lib spopenssl.lib spserver.lib ws2_32.lib MSVCRTD.LIB advapi32.lib mswsock.lib /nologo /subsystem:console /machine:I386 /libpath:"..\Release" /libpath:"..\spopenssl\Release" /libpath:"..\..\..\OpenSSL\lib\VC"
 
 !ELSEIF  "$(CFG)" == "testiocphttps - Win32 Debug"
 
@@ -75,7 +75,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 libeay32MTd.lib ssleay32MTd.lib spopenssl.lib spserver.lib ws2_32.lib MSVCRTD.LIB  advapi32.lib mswsock.lib /nologo /subsystem:console /debug /machine:I386 /nodefaultlib:"libc.lib" /nodefaultlib:"libcmt.lib" /nodefaultlib:"msvcrt.lib" /nodefaultlib:"libcd.lib" /nodefaultlib:"libcmtd.lib" /pdbtype:sept /libpath:"..\Debug" /libpath:"..\spopenssl\Debug" /libpath:"..\..\..\OpenSSL\lib\VC"
+# ADD LINK32 libeay32MTd.lib ssleay32MTd.lib spopenssl.lib advapi32.lib mswsock.lib spserver.lib ws2_32.lib MSVCRTD.LIB /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept /libpath:"..\Debug" /libpath:"..\spopenssl\Debug" /libpath:"..\..\..\OpenSSL\lib\VC"
 # SUBTRACT LINK32 /map /nodefaultlib /force
 
 !ENDIF 

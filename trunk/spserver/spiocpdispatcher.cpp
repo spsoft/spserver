@@ -302,3 +302,7 @@ int SP_IocpDispatcher :: push( const struct timeval * timeout, SP_TimerHandler *
 	return mPushQueue->push( arg );
 }
 
+int SP_IocpDispatcher :: push( SP_Response * response )
+{
+	return mEventArg->getResponseQueue()->push( response );
+}

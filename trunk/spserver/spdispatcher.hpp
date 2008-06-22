@@ -15,6 +15,7 @@ class SP_Message;
 class SP_BlockingQueue;
 class SP_TimerHandler;
 class SP_IOChannel;
+class SP_Response;
 
 class SP_EventArg;
 
@@ -53,6 +54,11 @@ public:
 	 * @note  handler will be deleted by dispatcher when the timer is terminated
 	 */
 	int push( const struct timeval * timeout, SP_TimerHandler * handler );
+
+	/**
+	 * @brief push a response
+	 */
+	int push( SP_Response * response );
 
 private:
 	int mIsShutdown;

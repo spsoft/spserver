@@ -276,3 +276,8 @@ int SP_Dispatcher :: push( const struct timeval * timeout, SP_TimerHandler * han
 	return msgqueue_push( (struct event_msgqueue*)mPushQueue, arg );
 }
 
+int SP_Dispatcher :: push( SP_Response * response )
+{
+	return msgqueue_push( (struct event_msgqueue*)mEventArg->getResponseQueue(), response );
+}
+
