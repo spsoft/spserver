@@ -1,19 +1,15 @@
 /*
- * Copyright 2007 Stephen Liu
+ * Copyright 2007-2008 Stephen Liu
  * For license terms, see the file COPYING along with this library.
  */
 
 #include <stdio.h>
-#include <syslog.h>
 #include <string.h>
-#include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
 #include <errno.h>
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include "spporting.hpp"
 
 #include "sptunnelimpl.hpp"
 
@@ -21,17 +17,22 @@
 #include "spresponse.hpp"
 #include "spbuffer.hpp"
 #include "spmsgblock.hpp"
+
+#ifdef WIN32
+#include "spiocpdispatcher.hpp"
+#else
 #include "spdispatcher.hpp"
+#endif
 
 class SP_MutexGuard {
 public:
-	SP_MutexGuard( pthread_mutex_t * mutex ) {
+	SP_MutexGuard( sp_thread_mutex_t * mutex ) {
 		mMutex = mutex;
-		pthread_mutex_lock( mMutex );
+		sp_thread_mutex_lock( mMutex );
 	}
-	~SP_MutexGuard() { pthread_mutex_unlock( mMutex ); }
+	~SP_MutexGuard() { sp_thread_mutex_unlock( mMutex ); }
 private:
-	pthread_mutex_t * mMutex;
+	sp_thread_mutex_t * mMutex;
 };
 
 SP_TunnelArg * SP_TunnelArg :: create()
@@ -41,7 +42,7 @@ SP_TunnelArg * SP_TunnelArg :: create()
 
 SP_TunnelArg :: SP_TunnelArg()
 {
-	pthread_mutex_init( &mMutex, NULL );
+	sp_thread_mutex_init( &mMutex, NULL );
 	mRefCount = 1;
 
 	mTunnelStatus = mBackendStatus = eCreate;
@@ -51,7 +52,7 @@ SP_TunnelArg :: SP_TunnelArg()
 
 SP_TunnelArg :: ~SP_TunnelArg()
 {
-	pthread_mutex_destroy( &mMutex );
+	sp_thread_mutex_destroy( &mMutex );
 }
 
 void SP_TunnelArg :: setTunnelStatus( int status )
@@ -121,10 +122,10 @@ void SP_TunnelArg :: release()
 {
 	int refCount = 1;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 	mRefCount--;
 	refCount = mRefCount;
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	if( refCount <= 0 ) delete this;
 }
@@ -225,7 +226,7 @@ void SP_BackendHandler :: close()
 
 //---------------------------------------------------------
 
-SP_TunnelHandler :: SP_TunnelHandler( SP_Dispatcher * dispatcher,
+SP_TunnelHandler :: SP_TunnelHandler( SP_MyDispatcher * dispatcher,
 		const char * dstHost, int dstPort )
 {
 	mDispatcher = dispatcher;
@@ -267,12 +268,12 @@ int SP_TunnelHandler :: start( SP_Request * request, SP_Response * response )
 			mArg->addRef();
 			mDispatcher->push( socketFd, new SP_BackendHandler( mArg ) );
 		} else {
-			syslog( LOG_WARNING, "Cannot connect to %s:%d", mHost, mPort );
+			sp_syslog( LOG_WARNING, "Cannot connect to %s:%d", mHost, mPort );
 			::close( socketFd );
 		}
 	} else {
 		ret = -1;
-		syslog( LOG_WARNING, "Cannot open socket, errno %d, %s",
+		sp_syslog( LOG_WARNING, "Cannot open socket, errno %d, %s",
 			errno, strerror( errno ) );
 	}
 

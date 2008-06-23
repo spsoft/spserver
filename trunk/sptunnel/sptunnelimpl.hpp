@@ -1,12 +1,12 @@
 /*
- * Copyright 2007 Stephen Liu
+ * Copyright 2007-2008 Stephen Liu
  * For license terms, see the file COPYING along with this library.
  */
 
 #ifndef __sptunnelimpl_hpp__
 #define __sptunnelimpl_hpp__
 
-#include <pthread.h>
+#include "spthread.hpp"
 
 #include "spmsgdecoder.hpp"
 #include "sphandler.hpp"
@@ -34,7 +34,7 @@ public:
 	void release();
 
 private:
-	pthread_mutex_t mMutex;
+	sp_thread_mutex_t mMutex;
 	unsigned char mRefCount;
 
 	unsigned char mTunnelStatus, mBackendStatus;
@@ -80,12 +80,17 @@ private:
 	SP_TunnelArg * mArg;
 };
 
-class SP_Dispatcher;
+#ifdef WIN32
+typedef class SP_IocpDispatcher SP_MyDispatcher;
+#else
+typedef class SP_Dispatcher SP_MyDispatcher;
+#endif
+
 class SP_MsgBlockList;
 
 class SP_TunnelHandler : public SP_Handler {
 public:
-	SP_TunnelHandler( SP_Dispatcher * dispatcher,
+	SP_TunnelHandler( SP_MyDispatcher * dispatcher,
 			const char * dstHost, int dstPort );
 
 	virtual ~SP_TunnelHandler();
@@ -103,7 +108,7 @@ public:
 	virtual void close();
 
 private:
-	SP_Dispatcher * mDispatcher;
+	SP_MyDispatcher * mDispatcher;
 	SP_TunnelArg * mArg;
 
 	SP_MsgBlockList * mMsgBlockList;

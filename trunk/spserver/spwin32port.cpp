@@ -240,6 +240,14 @@ int spwin32_getexefile( DWORD pid, char * path, int size )
 	return 0;
 }
 
+void spwin32_pwd( char * path, int size )
+{
+	spwin32_getexefile( GetCurrentProcessId(), path, size );
+
+	char * pos = strrchr( path, '\\' );
+	if( NULL != pos ) *pos = '\0';
+}
+
 void spwin32_pause_console()
 {
 	DWORD ppid = spwin32_getppid();

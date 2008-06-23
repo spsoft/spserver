@@ -1,20 +1,16 @@
 /*
- * Copyright 2007 Stephen Liu
+ * Copyright 2007-2008 Stephen Liu
  * For license terms, see the file COPYING along with this library.
  */
 
 #include <stdio.h>
-#include <syslog.h>
 #include <string.h>
-#include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
+#include <assert.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include "spporting.hpp"
 
-#include "spdispatcher.hpp"
 #include "spioutils.hpp"
 #include "sptunnelimpl.hpp"
 
@@ -22,6 +18,13 @@
 #include "spopenssl.hpp"
 #else
 #include "spmatrixssl.hpp"
+#endif
+
+#ifdef WIN32
+#include "spgetopt.h"
+#include "spiocpdispatcher.hpp"
+#else
+#include "spdispatcher.hpp"
 #endif
 
 int main( int argc, char * argv[] )
@@ -59,19 +62,23 @@ int main( int argc, char * argv[] )
 	}
 
 #ifdef LOG_PERROR
-	openlog( "sptunnel", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
+	sp_openlog( "sptunnel", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
 #else
-	openlog( "sptunnel", LOG_CONS | LOG_PID, LOG_USER );
+	sp_openlog( "sptunnel", LOG_CONS | LOG_PID, LOG_USER );
 #endif
 
-	syslog( LOG_NOTICE, "Backend server - %s:%d", dstHost, dstPort );
+	if( 0 != sp_initsock() ) assert( 0 );
+
+	sp_syslog( LOG_NOTICE, "Backend server - %s:%d", dstHost, dstPort );
 
 	int maxConnections = 100, reqQueueSize = 100;
 	const char * refusedMsg = "System busy, try again later.";
 
 	int listenFd = -1;
 	if( 0 == SP_IOUtils::tcpListen( "", port, &listenFd ) ) {
-		SP_Dispatcher dispatcher( new SP_DefaultCompletionHandler(), maxThreads );
+
+		SP_MyDispatcher dispatcher( new SP_DefaultCompletionHandler(), maxThreads );
+
 		dispatcher.setTimeout( 60 );
 		dispatcher.dispatch();
 
@@ -80,7 +87,16 @@ int main( int argc, char * argv[] )
 #else
 		SP_MatrixsslChannelFactory * sslFactory = new SP_MatrixsslChannelFactory();
 #endif
+
+#ifdef WIN32
+		char basePath[ 256 ] = { 0 }, crtPath[ 256 ] = { 0 }, keyPath[ 256 ] = { 0 };
+		spwin32_pwd( basePath, sizeof( basePath ) );
+		snprintf( crtPath, sizeof( crtPath ), "%s\\..\\..\\..\\sptunnel\\demo.crt", basePath );
+		snprintf( keyPath, sizeof( keyPath ), "%s\\..\\..\\..\\sptunnel\\demo.key", basePath );
+		sslFactory->init( crtPath, keyPath );
+#else
 		sslFactory->init( "demo.crt", "demo.key" );
+#endif
 
 		for( ; ; ) {
 			struct sockaddr_in addr;
@@ -106,7 +122,7 @@ int main( int argc, char * argv[] )
 		}
 	}
 
-	closelog();
+	sp_closelog();
 
 	return 0;
 }
