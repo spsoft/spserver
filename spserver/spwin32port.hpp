@@ -72,6 +72,8 @@ extern int spwin32_getexefile( DWORD pid, char * path, int size );
 
 extern const char * spwin32_strerror( DWORD lastError, char * errmsg, size_t len );
 
+extern void spwin32_pwd( char * path, int size );
+
 /* @return 0 OK, -1 Fail */
 extern int spwin32_initsocket();
 
