@@ -46,7 +46,7 @@ SP_IocpDispatcher :: SP_IocpDispatcher( SP_CompletionHandler * completionHandler
 		closesocket( fd );
 	}
 
-	mMaxThreads = maxThreads > 0 ? maxThreads : 64;
+	mMaxThreads = maxThreads > 0 ? maxThreads : 4;
 
 	mCompletionHandler = completionHandler;
 
