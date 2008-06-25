@@ -25,14 +25,14 @@ typedef int socklen_t;
 	typedef BOOL (WINAPI *LPFN_DISCONNECTEX)(SOCKET, LPOVERLAPPED, DWORD, DWORD);
 #endif
 
-#if _MSC_VER < 1300
-#define localtime_r(_clock, _result) ( *(_result) = *localtime( (_clock) ), (_result) )
-#define strcasecmp stricmp
-#define strncasecmp strnicmp
-#else
+#if _MSC_VER >= 1400
 #define localtime_r(_clock, _result) localtime_s(_result, _clock)
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
+#else
+#define localtime_r(_clock, _result) ( *(_result) = *localtime( (_clock) ), (_result) )
+#define strcasecmp stricmp
+#define strncasecmp strnicmp
 #endif
 
 #define snprintf _snprintf
