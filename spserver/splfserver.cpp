@@ -31,7 +31,7 @@ SP_LFServer :: SP_LFServer( const char * bindIP, int port, SP_HandlerFactory * h
 	mIsRunning = 0;
 
 	mEventArg = new SP_EventArg( 600 );
-	mMaxThreads = 64;
+	mMaxThreads = 4;
 
 	mAcceptArg = (SP_AcceptArg_t*)malloc( sizeof( SP_AcceptArg_t ) );
 	memset( mAcceptArg, 0, sizeof( SP_AcceptArg_t ) );

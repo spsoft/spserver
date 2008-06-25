@@ -37,7 +37,7 @@ SP_Dispatcher :: SP_Dispatcher( SP_CompletionHandler * completionHandler, int ma
 
 	mEventArg = new SP_EventArg( 600 );
 
-	mMaxThreads = maxThreads > 0 ? maxThreads : 64;
+	mMaxThreads = maxThreads > 0 ? maxThreads : 4;
 
 	mCompletionHandler = completionHandler;
 
