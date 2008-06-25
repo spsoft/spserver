@@ -31,7 +31,7 @@ SP_IocpServer :: SP_IocpServer( const char * bindIP, int port,
 	mIOChannelFactory = NULL;
 
 	mTimeout = 600;
-	mMaxThreads = 64;
+	mMaxThreads = 4;
 	mReqQueueSize = 128;
 	mMaxConnections = 256;
 	mRefusedMsg = strdup( "System busy, try again later." );
