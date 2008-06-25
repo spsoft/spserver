@@ -30,7 +30,7 @@
 int main( int argc, char * argv[] )
 {
 	int port = 8080, maxThreads = 10;
-	const char * dstHost = "66.249.89.99";
+	char * dstHost = "66.249.89.99";
 	int dstPort = 80;
 
 	extern char *optarg ;
