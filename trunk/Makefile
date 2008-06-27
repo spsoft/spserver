@@ -2,7 +2,7 @@
 #--------------------------------------------------------------------
 
 ifeq ($(origin version), undefined)
-	version = 0.9.1
+	version = 0.9.2
 endif
 
 #--------------------------------------------------------------------
@@ -26,5 +26,7 @@ clean:
 	@( cd openssl;  make clean )
 	@( cd matrixssl;  make clean )
 	@( cd gnutls;  make clean )
+	@( cd xyssl;  make clean )
 	@( cd sptunnel;  make clean )
+
 
