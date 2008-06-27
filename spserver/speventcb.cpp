@@ -177,7 +177,7 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 		} else {
 			int saved = errno;
 			sp_syslog( LOG_NOTICE, "session(%d.%d) read error, errno %d, status %d",
-					sid.mKey, sid.mSeq, errno, session->getRunning() );
+					sid.mKey, sid.mSeq, errno, session->getStatus() );
 
 			if( EAGAIN != saved ) {
 				if( 0 == session->getRunning() ) {
@@ -225,7 +225,8 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 				if( EAGAIN != errno ) {
 					ret = -1;
 					if( 0 == session->getRunning() ) {
-						sp_syslog( LOG_NOTICE, "session(%d.%d) write error", sid.mKey, sid.mSeq );
+						sp_syslog( LOG_NOTICE, "session(%d.%d) write error, errno %d, status %d, count %d",
+								sid.mKey, sid.mSeq, errno, session->getStatus(), session->getOutList()->getCount() );
 						SP_EventHelper::doError( session );
 					} else {
 						addEvent( session, EV_WRITE, -1 );
