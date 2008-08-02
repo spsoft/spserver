@@ -426,6 +426,20 @@ void SP_IocpEventCallback :: onResponse( void * queueData, void * arg )
 		}
 	}
 
+	if( ! SP_IocpEventHelper::isSystemSid( &fromSid ) ) {
+		SP_Session * session = manager->get( fromSid.mKey, &seq );
+		if( seq == fromSid.mSeq && NULL != session ) {
+			if( session->getOutList()->getCount() <= 0 && SP_Session::eExit == session->getStatus() ) {
+				if( 0 == session->getRunning() ) {
+					SP_IocpEventHelper::doClose( session );
+				} else {
+				sp_syslog( LOG_NOTICE, "session(%d.%d) busy, terminate session later",
+						fromSid.mKey, fromSid.mSeq );
+				}
+			}
+		}
+	}
+
 	delete response;
 }
 
