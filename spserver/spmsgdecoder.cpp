@@ -31,13 +31,15 @@ SP_DefaultMsgDecoder :: ~SP_DefaultMsgDecoder()
 
 int SP_DefaultMsgDecoder :: decode( SP_Buffer * inBuffer )
 {
-	mBuffer->reset();
+	if( inBuffer->getSize() > 0 ) {
+		mBuffer->reset();
+		mBuffer->append( inBuffer );
+		inBuffer->reset();
 
-	mBuffer->append( inBuffer );
+		return eOK;
+	}
 
-	inBuffer->reset();
-
-	return eOK;
+	return eMoreData;
 }
 
 SP_Buffer * SP_DefaultMsgDecoder :: getMsg()
