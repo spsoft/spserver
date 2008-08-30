@@ -165,6 +165,8 @@ SP_Response :: SP_Response( SP_Sid_t fromSid )
 	mReply = NULL;
 
 	mList = new SP_ArrayList();
+
+	mToCloseList = NULL;
 }
 
 SP_Response :: ~SP_Response()
@@ -177,6 +179,9 @@ SP_Response :: ~SP_Response()
 	mList = NULL;
 
 	mReply = NULL;
+
+	if( NULL != mToCloseList ) delete mToCloseList;
+	mToCloseList = NULL;
 }
 
 SP_Sid_t SP_Response :: getFromSid() const
@@ -208,5 +213,11 @@ SP_Message * SP_Response :: peekMessage()
 SP_Message * SP_Response :: takeMessage()
 {
 	return ( SP_Message * ) mList->takeItem( 0 );
+}
+
+SP_SidList * SP_Response :: getToCloseList()
+{
+	if( NULL == mToCloseList ) mToCloseList = new SP_SidList();
+	return mToCloseList;
 }
 

@@ -440,6 +440,21 @@ void SP_IocpEventCallback :: onResponse( void * queueData, void * arg )
 		}
 	}
 
+	for( int i = 0; i < response->getToCloseList()->getCount(); i++ ) {
+		SP_Sid_t sid = response->getToCloseList()->get( i );
+		SP_Session * session = manager->get( sid.mKey, &seq );
+		if( seq == sid.mSeq && NULL != session ) {
+			session->setStatus( SP_Session::eExit );
+			if( !addSend( session ) ) {
+				if( 0 == session->getRunning() ) {
+					SP_IocpEventHelper::doError( session );
+				}
+			}
+		} else {
+			sp_syslog( LOG_WARNING, "session(%d.%d) invalid, unknown CLOSE", sid.mKey, sid.mSeq );
+		}
+	}
+
 	delete response;
 }
 
