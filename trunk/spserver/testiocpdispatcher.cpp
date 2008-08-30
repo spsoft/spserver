@@ -20,6 +20,7 @@
 #include "spresponse.hpp"
 #include "sprequest.hpp"
 #include "spioutils.hpp"
+#include "sputils.hpp"
 
 #ifdef WIN32
 #include "spgetopt.h"
@@ -28,57 +29,68 @@
 #pragma comment(lib,"ws2_32")
 #pragma comment(lib,"mswsock")
 
-class SP_OnlineSidList {
+typedef struct tagSP_OnlineInfo {
+	SP_Sid_t mSid;
+	int mChatID;
+} SP_OnlineInfo_t;
+
+class SP_OnlineManager {
 public:
-	SP_OnlineSidList();
-	~SP_OnlineSidList();
+	SP_OnlineManager();
+	~SP_OnlineManager();
 
 	void copy( SP_SidList * outList, SP_Sid_t * ignoreSid = NULL );
 	void remove( SP_Sid_t sid );
-	void add( SP_Sid_t sid );
+	void add( SP_OnlineInfo_t * info );
+	int getChatID( SP_Sid_t sid );
+
 	int getCount();
 
 private:
-	SP_SidList mList;
+	SP_ArrayList mList;
 	sp_thread_mutex_t mMutex;
 };
 
-SP_OnlineSidList :: SP_OnlineSidList()
+SP_OnlineManager :: SP_OnlineManager()
 {
 	sp_thread_mutex_init( &mMutex, NULL );
 }
 
-SP_OnlineSidList :: ~SP_OnlineSidList()
+SP_OnlineManager :: ~SP_OnlineManager()
 {
 	sp_thread_mutex_destroy( &mMutex );
 }
 
-void SP_OnlineSidList :: copy( SP_SidList * outList, SP_Sid_t * ignoreSid )
+void SP_OnlineManager :: copy( SP_SidList * outList, SP_Sid_t * ignoreSid )
 {
 	sp_thread_mutex_lock( &mMutex );
 
 	for( int i = 0; i < mList.getCount(); i++ ) {
+		SP_OnlineInfo_t * info = (SP_OnlineInfo_t*)mList.getItem( i );
+
 		if( NULL != ignoreSid ) {
-			SP_Sid_t theSid = mList.get( i );
+			SP_Sid_t theSid = info->mSid;
 			if( theSid.mKey == ignoreSid->mKey && theSid.mSeq == ignoreSid->mSeq ) {
 				continue;
 			}
 		}
 
-		outList->add( mList.get( i ) );
+		outList->add( info->mSid );
 	}
 
 	sp_thread_mutex_unlock( &mMutex );
 }
 
-void SP_OnlineSidList :: remove( SP_Sid_t sid )
+void SP_OnlineManager :: remove( SP_Sid_t sid )
 {
 	sp_thread_mutex_lock( &mMutex );
 
 	for( int i = 0; i < mList.getCount(); i++ ) {
-		SP_Sid_t theSid = mList.get( i );
+		SP_OnlineInfo_t * info = (SP_OnlineInfo_t*)mList.getItem( i );
+		SP_Sid_t theSid = info->mSid;
 		if( theSid.mKey == sid.mKey && theSid.mSeq == sid.mSeq ) {
-			mList.take( i );
+			mList.takeItem( i );
+			free( info );
 			break;
 		}
 	}
@@ -86,16 +98,16 @@ void SP_OnlineSidList :: remove( SP_Sid_t sid )
 	sp_thread_mutex_unlock( &mMutex );
 }
 
-void SP_OnlineSidList :: add( SP_Sid_t sid )
+void SP_OnlineManager :: add( SP_OnlineInfo_t * info )
 {
 	sp_thread_mutex_lock( &mMutex );
 
-	mList.add( sid );
+	mList.append( info );
 
 	sp_thread_mutex_unlock( &mMutex );
 }
 
-int SP_OnlineSidList :: getCount()
+int SP_OnlineManager :: getCount()
 {
 	int count = 0;
 
@@ -108,11 +120,31 @@ int SP_OnlineSidList :: getCount()
 	return count;
 }
 
+int SP_OnlineManager :: getChatID( SP_Sid_t sid )
+{
+	int chatID = -1;
+
+	sp_thread_mutex_lock( &mMutex );
+
+	for( int i = 0; i < mList.getCount(); i++ ) {
+		SP_OnlineInfo_t * info = (SP_OnlineInfo_t*)mList.getItem( i );
+		SP_Sid_t theSid = info->mSid;
+		if( theSid.mKey == sid.mKey && theSid.mSeq == sid.mSeq ) {
+			chatID = info->mChatID;
+			break;
+		}
+	}
+
+	sp_thread_mutex_unlock( &mMutex );
+
+	return chatID;
+}
+
 //---------------------------------------------------------
 
 class SP_ChatHandler : public SP_Handler {
 public:
-	SP_ChatHandler( SP_OnlineSidList * onlineSidList, int chatID );
+	SP_ChatHandler( SP_OnlineManager * onlineManager, int chatID );
 	virtual ~SP_ChatHandler();
 
 	virtual int start( SP_Request * request, SP_Response * response );
@@ -130,7 +162,7 @@ private:
 	SP_Sid_t mSid;
 	int mChatID;
 
-	SP_OnlineSidList * mOnlineSidList;
+	SP_OnlineManager * mOnlineManager;
 
 	static int mMsgSeq;
 
@@ -139,12 +171,12 @@ private:
 
 int SP_ChatHandler :: mMsgSeq = 0;
 
-SP_ChatHandler :: SP_ChatHandler( SP_OnlineSidList * onlineSidList, int chatID )
+SP_ChatHandler :: SP_ChatHandler( SP_OnlineManager * onlineManager, int chatID )
 {
 	memset( &mSid, 0, sizeof( mSid ) );
 	mChatID = chatID;
 
-	mOnlineSidList = onlineSidList;
+	mOnlineManager = onlineManager;
 }
 
 SP_ChatHandler :: ~SP_ChatHandler()
@@ -153,9 +185,9 @@ SP_ChatHandler :: ~SP_ChatHandler()
 
 void SP_ChatHandler :: broadcast( SP_Response * response, const char * buffer, SP_Sid_t * ignoreSid )
 {
-	if( mOnlineSidList->getCount() > 0 ) {
+	if( mOnlineManager->getCount() > 0 ) {
 		SP_Message * msg = new SP_Message();
-		mOnlineSidList->copy( msg->getToList(), ignoreSid );
+		mOnlineManager->copy( msg->getToList(), ignoreSid );
 		msg->setCompletionKey( ++mMsgSeq );
 
 		msg->getMsg()->append( buffer );
@@ -175,7 +207,10 @@ int SP_ChatHandler :: start( SP_Request * request, SP_Response * response )
 	response->getReply()->getMsg()->append( buffer );
 	response->getReply()->setCompletionKey( ++mMsgSeq );
 
-	mOnlineSidList->add( mSid );
+	SP_OnlineInfo_t * info = (SP_OnlineInfo_t *)malloc( sizeof( SP_OnlineInfo_t ) );
+	info->mSid = mSid;
+	info->mChatID = mChatID;
+	mOnlineManager->add( info );
 
 	return 0;
 }
@@ -220,7 +255,7 @@ void SP_ChatHandler :: timeout( SP_Response * response )
 
 void SP_ChatHandler :: close()
 {
-	mOnlineSidList->remove( mSid );
+	mOnlineManager->remove( mSid );
 }
 
 //---------------------------------------------------------
@@ -293,7 +328,7 @@ int main( int argc, char * argv[] )
 
 	assert( 0 == sp_initsock() );
 
-	SP_OnlineSidList onlineSidList;
+	SP_OnlineManager onlineManager;
 	int chatID = 0;
 
 	int maxConnections = 100, reqQueueSize = 10;
@@ -320,16 +355,34 @@ int main( int argc, char * argv[] )
 					snprintf( buffer, sizeof( buffer ), "SYS : %d online\r\n", ++chatID );
 
 					SP_Message * msg = new SP_Message();
-					onlineSidList.copy( msg->getToList(), NULL );
+					onlineManager.copy( msg->getToList(), NULL );
 					msg->getMsg()->append( buffer );
 
 					SP_Sid_t sid = { SP_Sid_t::ePushKey, SP_Sid_t::ePushSeq };
 					SP_Response * response = new SP_Response( sid );
 					response->addMessage( msg );
 
+					/* close a random session */
+					if( onlineManager.getCount() > 0 && ( 0 == rand() % 3 ) ) {
+						sid = msg->getToList()->get( rand() % msg->getToList()->getCount() );
+						response->getToCloseList()->add( sid );
+
+						msg = new SP_Message();
+						snprintf( buffer, sizeof( buffer ), "SYS : %d force to offline\r\n",
+								onlineManager.getChatID( sid ) );
+						msg->getMsg()->append( buffer );
+						onlineManager.copy( msg->getToList(), NULL );
+						response->addMessage( msg );
+
+						msg = new SP_Message();
+						msg->getMsg()->append( "SYS : Force to close\r\n" );
+						msg->getToList()->add( sid );
+						response->addMessage( msg );
+					}
+
 					dispatcher.push( response );
 
-					dispatcher.push( fd, new SP_ChatHandler( &onlineSidList, chatID ) );
+					dispatcher.push( fd, new SP_ChatHandler( &onlineManager, chatID ) );
 				}
 			} else {
 				break;

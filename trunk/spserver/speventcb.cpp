@@ -341,6 +341,17 @@ void SP_EventCallback :: onResponse( void * queueData, void * arg )
 		}
 	}
 
+	for( int i = 0; i < response->getToCloseList()->getCount(); i++ ) {
+		SP_Sid_t sid = response->getToCloseList()->get( i );
+		SP_Session * session = manager->get( sid.mKey, &seq );
+		if( seq == sid.mSeq && NULL != session ) {
+			session->setStatus( SP_Session::eExit );
+			addEvent( session, EV_WRITE, -1 );
+		} else {
+			sp_syslog( LOG_WARNING, "session(%d.%d) invalid, unknown CLOSE", sid.mKey, sid.mSeq );
+		}
+	}
+
 	delete response;
 }
 

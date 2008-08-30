@@ -93,12 +93,15 @@ public:
 	SP_Message * peekMessage();
 	SP_Message * takeMessage();
 
+	SP_SidList * getToCloseList();
+
 private:
 	SP_Response( SP_Response & );
 	SP_Response & operator=( SP_Response & );
 
 	SP_Sid_t mFromSid;
 	SP_Message * mReply;
+	SP_SidList * mToCloseList;
 
 	SP_ArrayList * mList;
 };
