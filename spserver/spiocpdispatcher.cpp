@@ -22,6 +22,7 @@
 #include "sputils.hpp"
 #include "spioutils.hpp"
 #include "spiochannel.hpp"
+#include "sprequest.hpp"
 
 #include "spiocpevent.hpp"
 
@@ -198,6 +199,15 @@ void SP_IocpDispatcher :: onPush( void * queueData, void * arg )
 		assert( sid.mKey > 0 );
 
 		SP_Session * session = new SP_Session( sid );
+
+		char clientIP[ 32 ] = { 0 };
+		{
+			struct sockaddr_in clientAddr;
+			socklen_t clientLen = sizeof( clientAddr );
+			getpeername( pushArg->mFd, (struct sockaddr *)&clientAddr, &clientLen );
+			SP_IOUtils::inetNtoa( &( clientAddr.sin_addr ), clientIP, sizeof( clientIP ) );
+		}
+		session->getRequest()->setClientIP( clientIP );
 
 		session->setHandler( pushArg->mHandler );
 		session->setArg( eventArg );
