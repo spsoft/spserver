@@ -24,6 +24,8 @@ public:
 	SP_MsgBlockList();
 	~SP_MsgBlockList();
 
+	void reset();
+
 	size_t getTotalSize() const;
 
 	int getCount() const;

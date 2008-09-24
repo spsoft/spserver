@@ -30,6 +30,14 @@ SP_MsgBlockList :: ~SP_MsgBlockList()
 	mList = NULL;
 }
 
+void SP_MsgBlockList :: reset()
+{
+	for( ; mList->getCount() > 0; ) {
+		SP_MsgBlock * msgBlock = (SP_MsgBlock*)mList->takeItem( SP_ArrayList::LAST_INDEX );
+		delete msgBlock;
+	}
+}
+
 size_t SP_MsgBlockList :: getTotalSize() const
 {
 	size_t totalSize = 0;

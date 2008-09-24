@@ -33,6 +33,8 @@ public:
 	SP_SidList();
 	~SP_SidList();
 
+	void reset();
+
 	int getCount() const;
 	void add( SP_Sid_t sid );
 	SP_Sid_t get( int index ) const;
@@ -52,6 +54,8 @@ public:
 	SP_Message( int completionKey = 0 );
 	~SP_Message();
 
+	void reset();
+
 	SP_SidList * getToList();
 
 	size_t getTotalSize();
@@ -68,8 +72,6 @@ public:
 private:
 	SP_Message( SP_Message & );
 	SP_Message & operator=( SP_Message & );
-
-	SP_Sid_t mFromSid;
 
 	SP_Buffer * mMsg;
 	SP_MsgBlockList * mFollowBlockList;
