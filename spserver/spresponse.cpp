@@ -27,6 +27,13 @@ SP_SidList :: ~SP_SidList()
 	mList = NULL;
 }
 
+void SP_SidList :: reset()
+{
+	for( ; mList->getCount() > 0; ) {
+		free( (void*)mList->takeItem( SP_ArrayList::LAST_INDEX ) );
+	}
+}
+
 int SP_SidList :: getCount() const
 {
 	return mList->getCount();
@@ -99,6 +106,19 @@ SP_Message :: ~SP_Message()
 
 	if( NULL != mFailure ) delete mFailure;
 	mFailure = NULL;
+}
+
+void SP_Message :: reset()
+{
+	if( NULL != mMsg ) mMsg->reset();
+
+	if( NULL != mFollowBlockList ) mFollowBlockList->reset();
+
+	if( NULL != mToList ) mToList->reset();
+
+	if( NULL != mSuccess ) mSuccess->reset();
+
+	if( NULL != mFailure ) mFailure->reset();
 }
 
 SP_SidList * SP_Message :: getToList()
