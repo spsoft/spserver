@@ -8,8 +8,7 @@ SPServer Success Stories
 
 = Details =
 
-AnyChat Platform Core SDK V1.8 
-[http://www.bairuitech.com/html/ruanjianxiazai/20080910/105.html AnyChat Platform Core SDK]
+[http://www.bairuitech.com/html/ruanjianxiazai/20080910/105.html AnyChat Platform Core SDK V1.8]
 
 “AnyChat在线语音视频互动平台SDK包”是由广州佰锐网络科技有限公司独立研发，
 具有自主知识产权的在线多媒体开发平台，为在线系统（如在线游戏）提供语音、视频交互
