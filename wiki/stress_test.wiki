@@ -1,5 +1,4 @@
 #summary stress test result for spserver/testsmtp
-#labels Featured
 
 = Introduction =
 
