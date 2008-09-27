@@ -3,9 +3,13 @@
 
 = Introduction =
 
-Add your content here.
+SPServer Success Stories
 
 
 = Details =
 
-AnyChat Platform Core SDK V1.8 [http://www.bairuitech.com/html/ruanjianxiazai/20080910/105.html]
+AnyChat Platform Core SDK V1.8 
+[http://www.bairuitech.com/html/ruanjianxiazai/20080910/105.html AnyChat Platform Core SDK]
+
+
+This list is under construction (starting Sep 27, 2008). More to come soon... 
