@@ -120,6 +120,7 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 	char clientIP[ 32 ] = { 0 };
 	SP_IOUtils::inetNtoa( &( clientAddr.sin_addr ), clientIP, sizeof( clientIP ) );
 	session->getRequest()->setClientIP( clientIP );
+	session->getRequest()->setClientPort( ntohs( clientAddr.sin_port ) );
 
 	if( NULL != session ) {
 		eventArg->getSessionManager()->put( sid.mKey, sid.mSeq, session );

@@ -206,6 +206,7 @@ void SP_IocpDispatcher :: onPush( void * queueData, void * arg )
 			socklen_t clientLen = sizeof( clientAddr );
 			getpeername( pushArg->mFd, (struct sockaddr *)&clientAddr, &clientLen );
 			SP_IOUtils::inetNtoa( &( clientAddr.sin_addr ), clientIP, sizeof( clientIP ) );
+			session->getRequest()->setClientPort( ntohs( clientAddr.sin_port ) );
 		}
 		session->getRequest()->setClientIP( clientIP );
 

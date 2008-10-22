@@ -15,6 +15,7 @@ SP_Request :: SP_Request()
 {
 	memset( mClientIP, 0, sizeof( mClientIP ) );
 	mDecoder = new SP_DefaultMsgDecoder();
+	mPort = 0;
 }
 
 SP_Request :: ~SP_Request()
@@ -42,5 +43,15 @@ void SP_Request :: setClientIP( const char * clientIP )
 const char * SP_Request :: getClientIP()
 {
 	return mClientIP;
+}
+
+void SP_Request :: setClientPort( int port )
+{
+	mPort = port;
+}
+
+int SP_Request :: getClientPort()
+{
+	return mPort;
 }
 
