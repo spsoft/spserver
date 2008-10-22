@@ -22,8 +22,12 @@ public:
 	void setClientIP( const char * clientIP );
 	const char * getClientIP();
 
+	void setClientPort( int port );
+	int getClientPort();
+
 private:
 	char mClientIP[ 32 ];
+	int mPort;
 	SP_MsgDecoder * mDecoder;
 };
 
