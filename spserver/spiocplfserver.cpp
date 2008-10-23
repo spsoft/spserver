@@ -47,11 +47,15 @@ SP_IocpLFServer :: SP_IocpLFServer( const char * bindIP, int port, SP_HandlerFac
 	mCompletionHandler = NULL;
 
 	sp_thread_mutex_init( &mMutex, NULL );
+
+	mCompletionPort = mEventArg->getCompletionPort();
 }
 
 SP_IocpLFServer :: ~SP_IocpLFServer()
 {
 	shutdown();
+
+	for( ; mIsRunning; ) sleep( 1 );
 
 	if( NULL != mThreadPool ) delete mThreadPool;
 	mThreadPool = NULL;
@@ -69,6 +73,8 @@ SP_IocpLFServer :: ~SP_IocpLFServer()
 	mEventArg = NULL;
 
 	sp_thread_mutex_destroy( &mMutex );
+
+	mCompletionPort = NULL;
 }
 
 void SP_IocpLFServer :: setTimeout( int timeout )
@@ -104,6 +110,10 @@ void SP_IocpLFServer :: setIOChannelFactory( SP_IOChannelFactory * ioChannelFact
 void SP_IocpLFServer :: shutdown()
 {
 	mIsShutdown = 1;
+	
+	if( NULL != mCompletionPort ) {
+		PostQueuedCompletionStatus( mCompletionPort, 0, 0, 0 );
+	}
 }
 
 int SP_IocpLFServer :: isRunning()
@@ -124,6 +134,8 @@ void SP_IocpLFServer :: lfHandler( void * arg )
 	for( ; 0 == server->mIsShutdown; ) {
 		server->handleOneEvent();
 	}
+
+	server->mIsRunning = 0;
 }
 
 void SP_IocpLFServer :: handleOneEvent()
@@ -224,6 +236,8 @@ int SP_IocpLFServer :: run()
 			sp_syslog( LOG_WARNING, "Unable to create a thread to accept socket, %s", strerror( errno ) );
 			return -1;
 		}
+
+		mIsRunning = 1;
 
 		mThreadPool = new SP_ThreadPool( mMaxThreads );
 		for( int i = 0; i < mMaxThreads; i++ ) {

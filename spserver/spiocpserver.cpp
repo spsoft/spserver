@@ -35,15 +35,23 @@ SP_IocpServer :: SP_IocpServer( const char * bindIP, int port,
 	mReqQueueSize = 128;
 	mMaxConnections = 256;
 	mRefusedMsg = strdup( "System busy, try again later." );
+
+	mCompletionPort = NULL;
 }
 
 SP_IocpServer :: ~SP_IocpServer()
 {
+	shutdown();
+
+	for( ; mIsRunning; ) sleep( 1 );
+
 	if( NULL != mHandlerFactory ) delete mHandlerFactory;
 	mHandlerFactory = NULL;
 
 	if( NULL != mRefusedMsg ) free( mRefusedMsg );
 	mRefusedMsg = NULL;
+
+	mCompletionPort = NULL;
 }
 
 void SP_IocpServer :: setTimeout( int timeout )
@@ -77,6 +85,10 @@ void SP_IocpServer :: setIOChannelFactory( SP_IOChannelFactory * ioChannelFactor
 void SP_IocpServer :: shutdown()
 {
 	mIsShutdown = 1;
+
+	if( NULL != mCompletionPort ) {
+		PostQueuedCompletionStatus( mCompletionPort, 0, 0, 0 );
+	}
 }
 
 int SP_IocpServer :: isRunning()
@@ -196,6 +208,7 @@ int SP_IocpServer :: start()
 		SP_IocpMsgQueue * msgQueue = new SP_IocpMsgQueue( eventArg.getCompletionPort(),
 				SP_IocpEventCallback::eKeyMsgQueue, SP_IocpEventCallback::onResponse, &eventArg );
 		eventArg.setResponseQueue( msgQueue );
+		mCompletionPort = eventArg.getCompletionPort();
 
 		if( NULL == mIOChannelFactory ) {
 			mIOChannelFactory = new SP_DefaultIOChannelFactory();
