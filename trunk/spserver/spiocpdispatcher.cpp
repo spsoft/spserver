@@ -78,6 +78,8 @@ void SP_IocpDispatcher :: setTimeout( int timeout )
 void SP_IocpDispatcher :: shutdown()
 {
 	mIsShutdown = 1;
+
+	PostQueuedCompletionStatus( mEventArg->getCompletionPort(), 0, 0, 0 );
 }
 
 int SP_IocpDispatcher :: isRunning()

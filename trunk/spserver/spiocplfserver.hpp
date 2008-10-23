@@ -37,6 +37,7 @@ public:
 	void runForever();
 
 private:
+	HANDLE mCompletionPort;
 	char mBindIP[ 64 ];
 	int mPort;
 	int mIsShutdown;

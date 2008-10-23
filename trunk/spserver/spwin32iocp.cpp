@@ -317,6 +317,7 @@ BOOL SP_IocpEventCallback :: onAccept( SP_IocpAcceptArg_t * acceptArg )
 	char clientIP[ 32 ] = { 0 };
 	SP_IOUtils::inetNtoa( &( clientAddr.sin_addr ), clientIP, sizeof( clientIP ) );
 	session->getRequest()->setClientIP( clientIP );
+	session->getRequest()->setClientPort( ntohs( clientAddr.sin_port ) );
 
 	session->setHandler( acceptArg->mHandlerFactory->create() );	
 	session->setIOChannel( acceptArg->mIOChannelFactory->create() );

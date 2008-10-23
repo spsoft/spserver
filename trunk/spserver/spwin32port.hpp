@@ -27,10 +27,12 @@ typedef int socklen_t;
 
 #if _MSC_VER >= 1400
 #define localtime_r(_clock, _result) localtime_s(_result, _clock)
+#define gmtime_r(_clock, _result) gmtime_s(_result, _clock)
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
 #else
 #define localtime_r(_clock, _result) ( *(_result) = *localtime( (_clock) ), (_result) )
+#define gmtime_r(_clock, _result) ( *(_result) = *gmtime( (_clock) ), (_result) )
 #define strcasecmp stricmp
 #define strncasecmp strnicmp
 #endif

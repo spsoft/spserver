@@ -33,6 +33,7 @@ private:
 	SP_HandlerFactory * mHandlerFactory;
 	SP_IOChannelFactory * mIOChannelFactory;
 
+	HANDLE mCompletionPort;
 	char mBindIP[ 64 ];
 	int mPort;
 	int mIsShutdown;
