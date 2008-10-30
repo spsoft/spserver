@@ -214,16 +214,22 @@ int SP_HttpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 
 	reply->append( "\r\n" );	
 
+	char keepAlive[ 32 ] = { 0 };
+	if( NULL != httpResponse->getHeaderValue( SP_HttpMessage::HEADER_CONNECTION ) ) {
+		strncpy( keepAlive, httpResponse->getHeaderValue(
+				SP_HttpMessage::HEADER_CONNECTION ), sizeof( keepAlive ) - 1 );
+	}
+
 	if( NULL != httpResponse->getContent() ) {
 		response->getReply()->getFollowBlockList()->append(
 				new SP_HttpResponseMsgBlock( httpResponse ) );
+	} else {
+		delete httpResponse;
 	}
-
-	const char * keepAlive = httpResponse->getHeaderValue( SP_HttpMessage::HEADER_CONNECTION );
 
 	request->setMsgDecoder( new SP_HttpRequestDecoder() );
 
-	return ! ( NULL != keepAlive && 0 == strcasecmp( keepAlive, "Keep-Alive" ) );
+	return 0 == strcasecmp( keepAlive, "Keep-Alive" ) ? 0 : -1;
 }
 
 void SP_HttpHandlerAdapter :: error( SP_Response * response )
