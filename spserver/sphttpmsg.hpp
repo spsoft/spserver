@@ -104,6 +104,9 @@ public:
 	void setURI( const char * uri );
 	const char * getURI() const;
 
+	void setURL( const char * url );
+	const char * getURL() const;
+
 	void setClinetIP( const char * clientIP );
 	const char * getClientIP() const;
 
@@ -116,7 +119,7 @@ public:
 
 private:
 	char mMethod[ 16 ], mClientIP[ 16 ];
-	char * mURI;
+	char * mURI, * mURL;
 
 	SP_ArrayList * mParamNameList, * mParamValueList;
 };
