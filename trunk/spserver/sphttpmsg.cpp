@@ -81,6 +81,7 @@ int SP_HttpMsgParser :: parseStartLine( SP_HttpMessage ** message,
 		} else {
 			SP_HttpRequest * request = new SP_HttpRequest();
 			if( NULL != first ) request->setMethod( first );
+			if( NULL != second ) request->setURL( second );
 			if( NULL != second ) request->setURI( sp_strsep( &second, "?" ) );
 			if( NULL != pos ) request->setVersion( strtok( pos, "\r\n" ) );
 
@@ -454,7 +455,7 @@ SP_HttpRequest :: SP_HttpRequest()
 {
 	memset( mMethod, 0, sizeof( mMethod ) );
 	memset( mClientIP, 0, sizeof( mClientIP ) );
-	mURI = NULL;
+	mURI = mURL = NULL;
 
 	mParamNameList = new SP_ArrayList();
 	mParamValueList = new SP_ArrayList();
@@ -488,12 +489,26 @@ void SP_HttpRequest :: setURI( const char * uri )
 
 	mURI = strdup( uri );
 
-	if( NULL != temp ) free( mURI );
+	if( NULL != temp ) free( temp );
 }
 
 const char * SP_HttpRequest :: getURI() const
 {
 	return mURI;
+}
+
+void SP_HttpRequest :: setURL( const char * url )
+{
+	char * temp = mURL;
+
+	mURL = strdup( url );
+
+	if( NULL != temp ) free( temp );
+}
+
+const char * SP_HttpRequest :: getURL() const
+{
+	return mURL;
 }
 
 void SP_HttpRequest :: setClinetIP( const char * clientIP )
