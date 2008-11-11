@@ -170,9 +170,7 @@ void SP_BlockingQueue :: push( void * item )
 
 	mQueue->push( item );
 
-	if( mQueue->getLength() == 1 ) {
-		sp_thread_cond_signal( &mCond );
-	}
+	sp_thread_cond_signal( &mCond );
 
 	sp_thread_mutex_unlock( &mMutex );
 }
