@@ -211,6 +211,9 @@ SP_IocpEventArg :: ~SP_IocpEventArg()
 
 	if( NULL != mResponseQueue ) delete mResponseQueue;
 	mResponseQueue = NULL;
+
+	if( NULL != mSessionManager ) delete mSessionManager;
+	mSessionManager = NULL;
 }
 
 HANDLE SP_IocpEventArg :: getCompletionPort()
