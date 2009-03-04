@@ -464,6 +464,7 @@ SP_HttpRequest :: SP_HttpRequest()
 SP_HttpRequest :: ~SP_HttpRequest()
 {
 	if( NULL != mURI ) free( mURI );
+	if( NULL != mURL ) free( mURL );
 
 	for( int i = mParamNameList->getCount() - 1; i >= 0; i-- ) {
 		free( mParamNameList->takeItem( i ) );
