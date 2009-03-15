@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "sputils.hpp"
 
@@ -216,5 +217,46 @@ int SP_BlockingQueue :: getLength()
 	sp_thread_mutex_unlock( &mMutex );
 
 	return len;
+}
+
+//-------------------------------------------------------------------
+
+int sp_strtok( const char * src, int index, char * dest, int len,
+		char delimiter, const char ** next )
+{
+	int ret = 0;
+
+	const char * pos1 = src, * pos2 = NULL;
+
+	while ( isspace( delimiter ) && delimiter == * pos1 && '\0' != * pos1 ) pos1++;
+	for ( int i = 0; i < index; i++ ) {
+		pos1 = strchr ( pos1, delimiter );
+		if ( NULL == pos1 ) break;
+		while ( isspace( delimiter ) && delimiter == * pos1 && '\0' != * pos1 ) pos1++;
+	}
+
+	*dest = '\0';
+	if( NULL != next ) *next = NULL;
+
+	if ( NULL != pos1 && '\0' != * pos1 ) {
+		pos2 = strchr ( pos1, delimiter );
+		if ( NULL == pos2 ) {
+			strncpy ( dest, pos1, len );
+			if ( ((int)strlen(pos1)) >= len ) ret = -2;
+		} else {
+			if( pos2 - pos1 >= len ) ret = -2;
+			len = ( pos2 - pos1 + 1 ) > len ? len : ( pos2 - pos1 + 1 );
+			strncpy( dest, pos1, len );
+
+			while ( isspace( delimiter ) && delimiter == * pos2 && '\0' != * pos2 ) pos2++;
+			if( NULL != next && '\0' != *pos2 ) *next = pos2;
+		}
+	} else {
+		ret = -1;
+	}
+
+	dest[ len - 1 ] = '\0';
+
+	return ret;
 }
 

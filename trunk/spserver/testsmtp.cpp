@@ -20,143 +20,61 @@
 #include "spresponse.hpp"
 #include "sprequest.hpp"
 
-class SP_SmtpHandler : public SP_Handler {
+#include "spsmtp.hpp"
+
+class SP_FakeSmtpHandler : public SP_SmtpHandler {
 public:
-	SP_SmtpHandler();
-	virtual ~SP_SmtpHandler();
+	SP_FakeSmtpHandler(){}
 
-	virtual int start( SP_Request * request, SP_Response * response );
+	virtual ~SP_FakeSmtpHandler() {}
 
-	// return -1 : terminate session, 0 : continue
-	virtual int handle( SP_Request * request, SP_Response * response );
+	virtual int from( const char * args, SP_Buffer * reply ) {
+		char buffer[ 128 ] = { 0 };
+		snprintf( buffer, sizeof( buffer ), "250 %s, sender ok\r\n", args );
+		reply->append( buffer );
 
-	virtual void error( SP_Response * response );
-
-	virtual void timeout( SP_Response * response );
-
-	virtual void close();
-
-private:
-	int mState;
-
-	enum {
-		eINIT, eHELO, eEHLO, eAUTH, eAUTHUSER, eAUTHPASS, eMAIL, eRCPT, eDATA, eMAILDATA, eNOOP, eQUIT
-	};
-};
-
-SP_SmtpHandler :: SP_SmtpHandler()
-{
-	mState = eINIT;
-}
-
-SP_SmtpHandler :: ~SP_SmtpHandler()
-{
-}
-
-int SP_SmtpHandler :: start( SP_Request * request, SP_Response * response )
-{
-	char buffer[ 128 ] = { 0 };
-	snprintf( buffer, sizeof( buffer ),
-		"220 SMTP Server Ready, Client %s\r\n", request->getClientIP() );
-
-	request->setMsgDecoder( new SP_LineMsgDecoder() );
-	response->getReply()->getMsg()->append( buffer );
-
-	return 0;
-}
-
-int SP_SmtpHandler :: handle( SP_Request * request, SP_Response * response )
-{
-	int ret = 0;
-
-	// request->getMsgDecoder will return the arg of request->setMsgDecoder
-	const char * line = ((SP_LineMsgDecoder*)(request->getMsgDecoder()))->getMsg();
-
-	SP_Buffer * outBuffer = response->getReply()->getMsg();
-
-	if( mState == eDATA ) {
-		request->setMsgDecoder( new SP_LineMsgDecoder() );
-
-		outBuffer->append( "250 Requested mail action okay, completed.\r\n" );
-		mState = eMAILDATA;
-	} else if( mState == eAUTH ) {
-		outBuffer->append( "354 UGFzc3dvcmQ6\r\n" );
-		mState = eAUTHUSER;
-	} else if( mState == eAUTHUSER ) {
-		outBuffer->append( "235 OK Authenticated\r\n" );
-		mState = eAUTHPASS;
-	} else if( 0 == strncasecmp( line, "HELO", 4 ) ) {
-		outBuffer->append( "250 ok.\r\n" );
-		mState = eHELO;
-	} else if( 0 == strncasecmp( line, "EHLO", 4 ) ) {
-		outBuffer->append( "250-iunknown.com, helo.\r\n"
-				"250-EXPN\r\n"
-				"250 XTMD\r\n" );
-		mState = eEHLO;
-	} else if( 0 == strncasecmp( line, "AUTH", 4 ) ) {
-		outBuffer->append( "354 VXNlcm5hbWU6\r\n" );
-		mState = eAUTH;
-	} else if( 0 == strncasecmp( line, "MAIL", 4 ) ) {
-		outBuffer->append( "250 sender ok.\r\n" );
-		mState = eMAIL;
-	} else if( 0 == strncasecmp( line, "RCPT", 4 ) ) {
-		outBuffer->append( "250 recipient ok.\r\n" );
-		mState = eRCPT;
-	} else if( 0 == strncasecmp( line, "DATA", 4 ) ) {
-		request->setMsgDecoder( new SP_DotTermMsgDecoder() );
-
-		outBuffer->append( "354 Start mail input; end with <CRLF>.<CRLF>\r\n" );
-		mState = eDATA;
-	} else if( 0 == strncasecmp( line, "NOOP", 4 ) ) {
-		outBuffer->append( "250 ok.\r\n" );
-		mState = eNOOP;
-	} else if( 0 == strncasecmp( line, "QUIT", 4 ) ) {
-		outBuffer->append( "221 Closing connection. Good bye.\r\n" );
-		ret = -1;
-		mState = eQUIT;
-	} else {
-		outBuffer->append( "500 Syntax error, command unrecognized.\r\n" );
+		return 0;
 	}
 
-	return ret;
-}
+	virtual int rcpt( const char * args, SP_Buffer * reply ) {
+		char buffer[ 128 ] = { 0 };
+		snprintf( buffer, sizeof( buffer ), "250 %s, recipient ok\r\n", args );
+		reply->append( buffer );
 
-void SP_SmtpHandler :: error( SP_Response * )
-{
-}
+		return 0;
+	}
 
-void SP_SmtpHandler :: timeout( SP_Response * )
-{
-}
+	virtual int data( const char * data, SP_Buffer * reply ) {
+		reply->append( "250 Requested mail action okay, completed.\r\n" );
 
-void SP_SmtpHandler :: close()
-{
-}
+		return 0;
+	}
+};
 
 //---------------------------------------------------------
 
-class SP_SmtpHandlerFactory : public SP_HandlerFactory {
+class SP_FakeSmtpHandlerFactory : public SP_SmtpHandlerFactory {
 public:
-	SP_SmtpHandlerFactory();
-	virtual ~SP_SmtpHandlerFactory();
+	SP_FakeSmtpHandlerFactory();
+	virtual ~SP_FakeSmtpHandlerFactory();
 
-	virtual SP_Handler * create() const;
+	virtual SP_SmtpHandler * create() const;
 
 	//use default SP_CompletionHandler is enough, not need to implement
 	//virtual SP_CompletionHandler * createCompletionHandler() const;
 };
 
-SP_SmtpHandlerFactory :: SP_SmtpHandlerFactory()
+SP_FakeSmtpHandlerFactory :: SP_FakeSmtpHandlerFactory()
 {
 }
 
-SP_SmtpHandlerFactory :: ~SP_SmtpHandlerFactory()
+SP_FakeSmtpHandlerFactory :: ~SP_FakeSmtpHandlerFactory()
 {
 }
 
-SP_Handler * SP_SmtpHandlerFactory :: create() const
+SP_SmtpHandler * SP_FakeSmtpHandlerFactory :: create() const
 {
-	return new SP_SmtpHandler();
+	return new SP_FakeSmtpHandler();
 }
 
 //---------------------------------------------------------
@@ -198,7 +116,7 @@ int main( int argc, char * argv[] )
 	assert( 0 == sp_initsock() );
 
 	if( 0 == strcasecmp( serverType, "hahs" ) ) {
-		SP_Server server( "", port, new SP_SmtpHandlerFactory() );
+		SP_Server server( "", port, new SP_SmtpHandlerAdapterFactory( new SP_FakeSmtpHandlerFactory() ) );
 
 		server.setMaxConnections( 2048 );
 		server.setTimeout( 600 );
@@ -207,7 +125,7 @@ int main( int argc, char * argv[] )
 
 		server.runForever();
 	} else {
-		SP_LFServer server( "", port, new SP_SmtpHandlerFactory() );
+		SP_LFServer server( "", port, new SP_SmtpHandlerAdapterFactory( new SP_FakeSmtpHandlerFactory() ) );
 
 		server.setMaxConnections( 2048 );
 		server.setTimeout( 600 );

@@ -70,5 +70,8 @@ private:
 	sp_thread_cond_t mCond;
 };
 
+int sp_strtok( const char * src, int index, char * dest, int len,
+		char delimiter = ' ', const char ** next = 0 );
+
 #endif
 
