@@ -20,13 +20,14 @@
 
 #include "event.h"
 
-#define sp_evbuffer_new      evbuffer_new
-#define sp_evbuffer_free     evbuffer_free
-#define sp_evbuffer_add      evbuffer_add
-#define sp_evbuffer_drain    evbuffer_drain
-#define sp_evbuffer_expand   evbuffer_expand
-#define sp_evbuffer_remove   evbuffer_remove
-#define sp_evbuffer_readline evbuffer_readline
+#define sp_evbuffer_new         evbuffer_new
+#define sp_evbuffer_free        evbuffer_free
+#define sp_evbuffer_add         evbuffer_add
+#define sp_evbuffer_drain       evbuffer_drain
+#define sp_evbuffer_expand      evbuffer_expand
+#define sp_evbuffer_remove      evbuffer_remove
+#define sp_evbuffer_readline    evbuffer_readline
+#define sp_evbuffer_add_vprintf evbuffer_add_vprintf
 
 #endif
 
@@ -55,6 +56,22 @@ int SP_Buffer :: append( const SP_Buffer * buffer )
 	} else {
 		return 0;
 	}
+}
+
+int SP_Buffer :: printf( const char *fmt, ... )
+{
+	int ret = 0;
+
+	if( NULL != strchr( fmt, '%' ) ) {
+		va_list args;
+		va_start(args, fmt);
+		ret = sp_evbuffer_add_vprintf( mBuffer, fmt, args );
+		va_end(args);
+	} else {
+		ret = append( fmt );
+	}
+
+	return ret;
 }
 
 void SP_Buffer :: erase( int len )

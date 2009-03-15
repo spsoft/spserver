@@ -407,6 +407,20 @@ int SP_HttpMessage :: removeHeader( const char * name )
 	return ret;
 }
 
+int SP_HttpMessage :: removeHeader( int index )
+{
+	int ret = 0;
+
+	if( index >= 0 && index < mHeaderNameList->getCount() ) {
+		ret = 1;
+
+		free( mHeaderNameList->takeItem( index ) );	
+		free( mHeaderValueList->takeItem( index ) );
+	}
+
+	return ret;
+}
+
 int SP_HttpMessage :: getHeaderCount() const
 {
 	return mHeaderNameList->getCount();
