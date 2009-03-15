@@ -28,25 +28,48 @@ void SP_SmtpHandler :: timeout()
 {
 }
 
-int SP_SmtpHandler :: welcome( SP_Buffer * reply )
+int SP_SmtpHandler :: welcome( const char * clientIP, SP_Buffer * reply )
 {
 	reply->append( "220 SMTP service ready\n" );
 
-	return 0;
+	return eAccept;
+}
+
+int SP_SmtpHandler :: help( const char * args, SP_Buffer * reply )
+{
+	reply->append( "250 HELP HELO EHLO MAIL RCPT DATA NOOP RSET QUIT\r\n" );
+
+	return eAccept;
 }
 
 int SP_SmtpHandler :: helo( const char * args, SP_Buffer * reply )
 {
 	reply->append( "250 OK\n" );
 
-	return 0;
+	return eAccept;
+}
+
+int SP_SmtpHandler :: ehlo( const char * args, SP_Buffer * reply )
+{
+	reply->append( "250-OK\n" );
+	reply->append( "250-AUTH=LOGIN\n" );
+	reply->append( "250 HELP\n" );
+
+	return eAccept;
+}
+
+int SP_SmtpHandler :: auth( const char * user, const char * pass, SP_Buffer * reply )
+{
+	reply->append( "535 Authenticate failed\n" );
+
+	return eReject;
 }
 
 int SP_SmtpHandler :: noop( const char * args, SP_Buffer * reply )
 {
 	reply->append( "250 OK\n" );
 
-	return 0;
+	return eAccept;
 }
 
 //---------------------------------------------------------
@@ -61,6 +84,19 @@ class SP_SmtpSession {
 public:
 	SP_SmtpSession( SP_SmtpHandlerFactory * handlerFactory );
 	~SP_SmtpSession();
+
+	enum { eStepOther = 0, eStepUser = 1, eStepPass = 2 };
+	void setAuthStep( int step );
+	int  getAuthStep();
+
+	void setUser( const char * user );
+	const char * getUser();
+
+	void setPass( const char * pass );
+	const char * getPass();
+
+	void setSeenAuth( int seenAuth );
+	int  getSeenAuth();
 
 	void setSeenHelo( int seenHelo );
 	int  getSeenHelo();
@@ -81,6 +117,11 @@ public:
 	SP_SmtpHandler * getHandler();
 
 private:
+	int mAuthStep;
+	int mSeenAuth;
+
+	char mUser[ 128 ], mPass[ 128 ];
+
 	int mSeenHelo;
 	int mSeenSender;
 	int mRcptCount;
@@ -99,6 +140,11 @@ SP_SmtpSession :: SP_SmtpSession( SP_SmtpHandlerFactory * handlerFactory )
 	mHandlerFactory = handlerFactory;
 
 	mSeenHelo = 0;
+	mSeenAuth = 0;
+	mAuthStep = eStepOther;
+
+	memset( mUser, 0, sizeof( mUser ) );
+	memset( mPass, 0, sizeof( mPass ) );
 
 	reset();
 }
@@ -118,6 +164,46 @@ void SP_SmtpSession :: reset()
 	mSeenData = 0;
 
 	mDataMode = 0;
+}
+
+void SP_SmtpSession :: setAuthStep( int step )
+{
+	mAuthStep = step;
+}
+
+int  SP_SmtpSession :: getAuthStep()
+{
+	return mAuthStep;
+}
+
+void SP_SmtpSession :: setUser( const char * user )
+{
+	sp_strlcpy( mUser, user, sizeof( mUser ) );
+}
+
+const char * SP_SmtpSession :: getUser()
+{
+	return mUser;
+}
+
+void SP_SmtpSession :: setPass( const char * pass )
+{
+	sp_strlcpy( mPass, pass, sizeof( mPass ) );
+}
+
+const char * SP_SmtpSession :: getPass()
+{
+	return mPass;
+}
+
+void SP_SmtpSession :: setSeenAuth( int seenAuth )
+{
+	mSeenAuth = seenAuth;
+}
+
+int  SP_SmtpSession :: getSeenAuth()
+{
+	return mSeenAuth;
 }
 
 void SP_SmtpSession :: setSeenHelo( int seenHelo )
@@ -210,7 +296,8 @@ SP_SmtpHandlerAdapter :: ~SP_SmtpHandlerAdapter()
 
 int SP_SmtpHandlerAdapter :: start( SP_Request * request, SP_Response * response )
 {
-	int ret = mSession->getHandler()->welcome( response->getReply()->getMsg() );
+	int ret = mSession->getHandler()->welcome( request->getClientIP(),
+			response->getReply()->getMsg() );
 
 	request->setMsgDecoder( new SP_LineMsgDecoder() );
 
@@ -219,7 +306,7 @@ int SP_SmtpHandlerAdapter :: start( SP_Request * request, SP_Response * response
 
 int SP_SmtpHandlerAdapter :: handle( SP_Request * request, SP_Response * response )
 {
-	int ret = 0;
+	int ret = SP_SmtpHandler::eAccept;
 
 	SP_Buffer * reply = response->getReply()->getMsg();
 
@@ -228,6 +315,20 @@ int SP_SmtpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 		ret = mSession->getHandler()->data( decoder->getMsg(), reply );
 		mSession->setDataMode( 0 );
 		request->setMsgDecoder( new SP_LineMsgDecoder() );
+
+	} else if( SP_SmtpSession::eStepUser == mSession->getAuthStep() ) {
+		const char * line = ((SP_LineMsgDecoder*)(request->getMsgDecoder()))->getMsg();
+		mSession->setUser( line );
+		mSession->setAuthStep( SP_SmtpSession::eStepPass );
+		reply->append( "334 UGFzc3dvcmQ6\r\n" );
+
+	} else if( SP_SmtpSession::eStepPass == mSession->getAuthStep() ) {
+		const char * line = ((SP_LineMsgDecoder*)(request->getMsgDecoder()))->getMsg();
+		mSession->setPass( line );
+		mSession->setAuthStep( SP_SmtpSession::eStepOther );
+		ret = mSession->getHandler()->auth( mSession->getUser(), mSession->getPass(), reply );
+		if( SP_SmtpHandler::eAccept == ret ) mSession->setSeenAuth( 1 );
+
 	} else {
 		const char * line = ((SP_LineMsgDecoder*)(request->getMsgDecoder()))->getMsg();
 
@@ -236,11 +337,41 @@ int SP_SmtpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 
 		sp_strtok( line, 0, cmd, sizeof( cmd ), ' ', &args );
 
-		if( 0 == strcasecmp( cmd, "HELO" ) ) {
+		if( 0 == strcasecmp( cmd, "EHLO" ) ) {
+			if( NULL != args ) {
+				if( 0 == mSession->getSeenHelo() ) {
+					ret = mSession->getHandler()->ehlo( args, reply );
+					if( SP_SmtpHandler::eAccept == ret ) mSession->setSeenHelo( 1 );
+				} else {
+					reply->append( "503 Duplicate EHLO\r\n" );
+				}
+			} else {
+				reply->append( "501 Syntax: EHLO <hostname>\r\n" );
+			}
+
+		} else if( 0 == strcasecmp( cmd, "AUTH" ) ) {
+			if( 0 == mSession->getSeenHelo() ) {
+				reply->append( "503 Error: send EHLO first\r\n" );
+			} else if( mSession->getSeenAuth() ) {
+				reply->append( "503 Duplicate AUTH\r\n" );
+			} else {
+				if( NULL != args ) {
+					if( 0 == strcasecmp( args, "LOGIN" ) ) {
+						reply->append( "334 VXNlcm5hbWU6\r\n" );
+						mSession->setAuthStep( SP_SmtpSession::eStepUser );
+					} else {
+						reply->append( "504 Unrecognized authentication type.\r\n" );
+					}
+				} else {
+					reply->append( "501 Syntax: AUTH LOGIN\r\n" );
+				}
+			}
+
+		} else if( 0 == strcasecmp( cmd, "HELO" ) ) {
 			if( NULL != args ) {
 				if( 0 == mSession->getSeenHelo() ) {
 					ret = mSession->getHandler()->helo( args, reply );
-					if( 0 == ret ) mSession->setSeenHelo( 1 );
+					if( SP_SmtpHandler::eAccept == ret ) mSession->setSeenHelo( 1 );
 				} else {
 					reply->append( "503 Duplicate HELO\r\n" );
 				}
@@ -258,7 +389,7 @@ int SP_SmtpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 					if( 0 == strncasecmp( args, "FROM:", 5 ) ) args += 5;
 					for( ; isspace( *args ); ) args++;
 					ret = mSession->getHandler()->from( args, reply );
-					if( 0 == ret ) mSession->setSeenSender( 1 );
+					if( SP_SmtpHandler::eAccept == ret ) mSession->setSeenSender( 1 );
 				} else {
 					reply->append( "501 Syntax: MAIL FROM:<address>\r\n" );
 				}
@@ -276,7 +407,7 @@ int SP_SmtpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 					if( 0 == strncasecmp( args, "TO:", 3 ) ) args += 3;
 					for( ; isspace( *args ); ) args++;
 					ret = mSession->getHandler()->rcpt( args, reply );
-					if( 0 == ret ) mSession->addRcpt();
+					if( SP_SmtpHandler::eAccept == ret ) mSession->addRcpt();
 				} else {
 					reply->append( "501 Syntax: RCPT TO:<address>\r\n" );
 				}
@@ -302,16 +433,19 @@ int SP_SmtpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 		} else if( 0 == strcasecmp( cmd, "NOOP" ) ) {
 			ret = mSession->getHandler()->noop( args, reply );
 
+		} else if( 0 == strcasecmp( cmd, "HELP" ) ) {
+			ret = mSession->getHandler()->help( args, reply );
+
 		} else if( 0 == strcasecmp( cmd, "QUIT" ) ) {
 			reply->append( "221 Closing connection. Good bye.\r\n" );
-			ret = -1;
+			ret = SP_SmtpHandler::eClose;
 
 		} else {
 			reply->append( "500 Syntax error, command unrecognized.\r\n" );
 		}
 	}
 
-	return ret;
+	return SP_SmtpHandler::eClose == ret ? -1 : 0;
 }
 
 void SP_SmtpHandlerAdapter :: error( SP_Response * response )

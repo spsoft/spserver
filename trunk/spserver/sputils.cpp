@@ -260,3 +260,11 @@ int sp_strtok( const char * src, int index, char * dest, int len,
 	return ret;
 }
 
+char * sp_strlcpy( char * dest, const char * src, int n )
+{
+	strncpy( dest, src, n );
+	dest[ n - 1 ] = '\0';
+
+	return dest;
+}
+

@@ -24,31 +24,69 @@
 
 class SP_FakeSmtpHandler : public SP_SmtpHandler {
 public:
-	SP_FakeSmtpHandler(){}
+	SP_FakeSmtpHandler(){
+		mAuthResult = 0;
+	}
 
 	virtual ~SP_FakeSmtpHandler() {}
 
+	int ehlo( const char * args, SP_Buffer * reply )
+	{
+		reply->append( "250-OK\n" );
+		reply->append( "250-AUTH LOGIN\n" );
+		reply->append( "250 HELP\n" );
+
+		return eAccept;
+	}
+
+	int auth( const char * user, const char * pass, SP_Buffer * reply )
+	{
+		//printf( "auth user %s, pass %s\n", user, pass );
+
+		reply->append( "235 Authentication successful.\r\n" );
+		mAuthResult = 1;
+
+		return eAccept;
+	}
+
 	virtual int from( const char * args, SP_Buffer * reply ) {
+
+		//printf( "mail from: %s\n", args );
+
+		if( 0 == mAuthResult ) {
+			reply->append( "503 Error: need AUTH command\r\n" );
+			return eReject;
+		}
+
 		char buffer[ 128 ] = { 0 };
 		snprintf( buffer, sizeof( buffer ), "250 %s, sender ok\r\n", args );
 		reply->append( buffer );
 
-		return 0;
+		return eAccept;
 	}
 
 	virtual int rcpt( const char * args, SP_Buffer * reply ) {
+
+		//printf( "rcpt to: %s\n", args );
+
 		char buffer[ 128 ] = { 0 };
 		snprintf( buffer, sizeof( buffer ), "250 %s, recipient ok\r\n", args );
 		reply->append( buffer );
 
-		return 0;
+		return eAccept;
 	}
 
 	virtual int data( const char * data, SP_Buffer * reply ) {
+
+		//printf( "data length %d\n", strlen( data ) );
+
 		reply->append( "250 Requested mail action okay, completed.\r\n" );
 
-		return 0;
+		return eAccept;
 	}
+
+private:
+	int mAuthResult;
 };
 
 //---------------------------------------------------------

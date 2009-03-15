@@ -73,5 +73,7 @@ private:
 int sp_strtok( const char * src, int index, char * dest, int len,
 		char delimiter = ' ', const char ** next = 0 );
 
+char * sp_strlcpy( char * dest, const char * src, int n );
+
 #endif
 
