@@ -24,11 +24,11 @@ LIBOBJS = sputils.o spioutils.o spiochannel.o \
 	spmsgblock.o spmsgdecoder.o spresponse.o sprequest.o \
 	spexecutor.o spsession.o speventcb.o spserver.o \
 	spdispatcher.o splfserver.o \
-	sphttpmsg.o sphttp.o
+	sphttpmsg.o sphttp.o spsmtp.o
 
 TARGET =  libspserver.so \
 		testecho testthreadpool testsmtp testchat teststress testhttp \
-		testhttpmsg testdispatcher testchat_d testunp
+		testhttp_d testhttpmsg testdispatcher testchat_d testunp
 
 #--------------------------------------------------------------------
 
@@ -53,6 +53,9 @@ testecho: testecho.o
 	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
 
 testhttp: testhttp.o
+	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
+
+testhttp_d: testhttp_d.o
 	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
 
 testhttpmsg: sputils.o sphttpmsg.o testhttpmsg.o
