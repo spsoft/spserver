@@ -149,6 +149,10 @@ SOURCE=..\spserver\spsession.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\spserver\spsmtp.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\spserver\spthread.cpp
 # End Source File
 # Begin Source File
@@ -242,6 +246,10 @@ SOURCE=..\spserver\spresponse.hpp
 # Begin Source File
 
 SOURCE=..\spserver\spsession.hpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\spserver\spsmtp.hpp
 # End Source File
 # Begin Source File
 
