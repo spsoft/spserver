@@ -76,6 +76,7 @@ public:
 
 	void addHeader( const char * name, const char * value );
 	int removeHeader( const char * name );
+	int removeHeader( int index );
 	int getHeaderCount() const;
 	const char * getHeaderName( int index ) const;
 	const char * getHeaderValue( int index ) const;

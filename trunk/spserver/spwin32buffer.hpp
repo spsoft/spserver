@@ -35,13 +35,14 @@
 #include <sys/types.h>
 #include <stdarg.h>
 
-#define sp_evbuffer_new      spwin32buffer_new
-#define sp_evbuffer_free     spwin32buffer_free
-#define sp_evbuffer_add      spwin32buffer_add
-#define sp_evbuffer_drain    spwin32buffer_drain
-#define sp_evbuffer_expand   spwin32buffer_expand
-#define sp_evbuffer_readline spwin32buffer_readline
-#define sp_evbuffer_remove   spwin32buffer_remove
+#define sp_evbuffer_new         spwin32buffer_new
+#define sp_evbuffer_free        spwin32buffer_free
+#define sp_evbuffer_add         spwin32buffer_add
+#define sp_evbuffer_drain       spwin32buffer_drain
+#define sp_evbuffer_expand      spwin32buffer_expand
+#define sp_evbuffer_readline    spwin32buffer_readline
+#define sp_evbuffer_remove      spwin32buffer_remove
+#define sp_evbuffer_add_vprintf spwin32buffer_add_vprintf
 
 typedef struct spwin32buffer sp_buffer_t;
 

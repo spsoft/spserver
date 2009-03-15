@@ -24,6 +24,8 @@ public:
 
 	int append( const void * buffer, int len = 0 );
 	int append( const SP_Buffer * buffer );
+	int printf( const char *fmt, ... );
+
 	void erase( int len );
 	void reset();
 	const void * getBuffer() const;
