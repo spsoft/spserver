@@ -25,7 +25,7 @@ LIBOBJS = sputils.o spioutils.o spiochannel.o \
 	spmsgblock.o spmsgdecoder.o spresponse.o sprequest.o \
 	spexecutor.o spsession.o speventcb.o spserver.o \
 	spdispatcher.o splfserver.o \
-	sphttpmsg.o sphttp.o
+	sphttpmsg.o sphttp.o spsmtp.o
 
 TARGET =  libspserver.dylib \
 		testecho testchat teststress testhttp
