@@ -26,7 +26,7 @@ LIBOBJS = sputils.o spioutils.o spiochannel.o \
 	spdispatcher.o splfserver.o \
 	sphttpmsg.o sphttp.o spsmtp.o
 
-TARGET =  libspserver.so \
+TARGET =  libspserver.so libspserver.a \
 		testecho testthreadpool testsmtp testchat teststress testhttp \
 		testhttp_d testhttpmsg testdispatcher testchat_d testunp
 
@@ -36,6 +36,9 @@ all: $(TARGET)
 
 libspserver.so: $(LIBOBJS)
 	$(LINKER) $(SOFLAGS) $^ -o $@
+
+libspserver.a: $(LIBOBJS)
+	$(AR) $@ $^
 
 testthreadpool: testthreadpool.o
 	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
