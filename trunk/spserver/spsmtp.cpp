@@ -296,8 +296,11 @@ SP_SmtpHandlerAdapter :: ~SP_SmtpHandlerAdapter()
 
 int SP_SmtpHandlerAdapter :: start( SP_Request * request, SP_Response * response )
 {
-	int ret = mSession->getHandler()->welcome( request->getClientIP(),
-			response->getReply()->getMsg() );
+	SP_Buffer * reply = response->getReply()->getMsg();
+
+	int ret = mSession->getHandler()->welcome( request->getClientIP(), reply );
+
+	if( NULL == reply->find( "\n", 1 ) ) reply->append( "\n" );
 
 	request->setMsgDecoder( new SP_LineMsgDecoder() );
 
@@ -444,6 +447,8 @@ int SP_SmtpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 			reply->append( "500 Syntax error, command unrecognized.\r\n" );
 		}
 	}
+
+	if( NULL == reply->find( "\n", 1 ) ) reply->append( "\n" );
 
 	return SP_SmtpHandler::eClose == ret ? -1 : 0;
 }
