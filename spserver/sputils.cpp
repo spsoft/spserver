@@ -239,6 +239,7 @@ int sp_strtok( const char * src, int index, char * dest, int len,
 	if( NULL != next ) *next = NULL;
 
 	if ( NULL != pos1 && '\0' != * pos1 ) {
+		if( delimiter == *pos1 ) pos1++;
 		pos2 = strchr ( pos1, delimiter );
 		if ( NULL == pos2 ) {
 			strncpy ( dest, pos1, len );
