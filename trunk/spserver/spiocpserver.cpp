@@ -51,6 +51,9 @@ SP_IocpServer :: ~SP_IocpServer()
 	if( NULL != mRefusedMsg ) free( mRefusedMsg );
 	mRefusedMsg = NULL;
 
+	if( NULL != mIOChannelFactory ) delete mIOChannelFactory;
+	mIOChannelFactory = NULL;
+
 	mCompletionPort = NULL;
 }
 
