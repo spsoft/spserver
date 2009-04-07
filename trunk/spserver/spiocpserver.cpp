@@ -43,7 +43,10 @@ SP_IocpServer :: ~SP_IocpServer()
 {
 	shutdown();
 
-	for( ; mIsRunning; ) sleep( 1 );
+	for( ; mIsRunning; ) {
+		shutdown();
+		sleep( 1 );
+	}
 
 	if( NULL != mHandlerFactory ) delete mHandlerFactory;
 	mHandlerFactory = NULL;
