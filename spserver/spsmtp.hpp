@@ -9,6 +9,7 @@
 #include "sphandler.hpp"
 
 class SP_Buffer;
+class SP_ArrayList;
 
 class SP_SmtpHandler {
 public:
@@ -64,6 +65,19 @@ public:
 	 * @param data will be the smtp data stream, stripped of any extra '.' chars
 	 */
 	virtual int data( const char * data, SP_Buffer * reply ) = 0;
+};
+
+class SP_SmtpHandlerList {
+public:
+	SP_SmtpHandlerList();
+	~SP_SmtpHandlerList();
+
+	int getCount();
+	void append( SP_SmtpHandler * handler );
+	SP_SmtpHandler * getItem( int index );
+
+private:
+	SP_ArrayList * mList;
 };
 
 class SP_SmtpHandlerFactory {
