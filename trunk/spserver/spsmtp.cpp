@@ -74,6 +74,37 @@ int SP_SmtpHandler :: noop( const char * args, SP_Buffer * reply )
 
 //---------------------------------------------------------
 
+SP_SmtpHandlerList :: SP_SmtpHandlerList()
+{
+	mList = new SP_ArrayList();
+}
+
+SP_SmtpHandlerList :: ~SP_SmtpHandlerList()
+{
+	for( int i = 0; i < mList->getCount(); i++ ) {
+		delete (SP_SmtpHandler*)mList->getItem(i);
+	}
+
+	delete mList, mList = NULL;
+}
+
+int SP_SmtpHandlerList :: getCount()
+{
+	return mList->getCount();
+}
+
+void SP_SmtpHandlerList :: append( SP_SmtpHandler * handler )
+{
+	mList->append( handler );
+}
+
+SP_SmtpHandler * SP_SmtpHandlerList :: getItem( int index )
+{
+	return (SP_SmtpHandler*)mList->getItem( index );
+}
+
+//---------------------------------------------------------
+
 SP_SmtpHandlerFactory :: ~SP_SmtpHandlerFactory()
 {
 }
