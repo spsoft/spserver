@@ -25,7 +25,7 @@
 class SP_FakeSmtpHandler : public SP_SmtpHandler {
 public:
 	SP_FakeSmtpHandler(){
-		mAuthResult = 0;
+		mAuthResult = 1;
 	}
 
 	virtual ~SP_FakeSmtpHandler() {}
@@ -145,11 +145,7 @@ int main( int argc, char * argv[] )
 	}
 #endif
 
-#ifdef LOG_PERROR
 	sp_openlog( "testsmtp", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
-#else
-	sp_openlog( "testsmtp", LOG_CONS | LOG_PID, LOG_USER );
-#endif
 
 	assert( 0 == sp_initsock() );
 

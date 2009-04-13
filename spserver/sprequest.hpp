@@ -6,6 +6,8 @@
 #ifndef __sprequest_hpp__
 #define __sprequest_hpp__
 
+#include "spporting.hpp"
+
 class SP_MsgDecoder;
 
 class SP_Request {
@@ -25,10 +27,16 @@ public:
 	void setClientPort( int port );
 	int getClientPort();
 
+	void setServerIP( const char * ip );
+	const char * getServerIP();
+
 private:
-	char mClientIP[ 32 ];
-	int mPort;
 	SP_MsgDecoder * mDecoder;
+
+	char mClientIP[ 32 ];
+	int mClientPort;
+
+	char mServerIP[ 32 ];
 };
 
 #endif

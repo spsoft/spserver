@@ -95,13 +95,13 @@ int SP_EventArg :: getTimeout() const
 void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 {
 	int clientFD;
-	struct sockaddr_in clientAddr;
-	int clientLen = sizeof( clientAddr );
+	struct sockaddr_in addr;
+	socklen_t addrLen = sizeof( addr );
 
 	SP_AcceptArg_t * acceptArg = (SP_AcceptArg_t*)arg;
 	SP_EventArg * eventArg = acceptArg->mEventArg;
 
-	clientFD = accept( fd, (struct sockaddr *)&clientAddr, (socklen_t*)&clientLen );
+	clientFD = accept( fd, (struct sockaddr *)&addr, &addrLen );
 	if( -1 == clientFD ) {
 		sp_syslog( LOG_WARNING, "accept failed" );
 		return;
@@ -117,10 +117,15 @@ void SP_EventCallback :: onAccept( int fd, short events, void * arg )
 
 	SP_Session * session = new SP_Session( sid );
 
-	char clientIP[ 32 ] = { 0 };
-	SP_IOUtils::inetNtoa( &( clientAddr.sin_addr ), clientIP, sizeof( clientIP ) );
-	session->getRequest()->setClientIP( clientIP );
-	session->getRequest()->setClientPort( ntohs( clientAddr.sin_port ) );
+	char strip[ 32 ] = { 0 };
+	SP_IOUtils::inetNtoa( &( addr.sin_addr ), strip, sizeof( strip ) );
+	session->getRequest()->setClientIP( strip );
+	session->getRequest()->setClientPort( ntohs( addr.sin_port ) );
+
+	if( 0 == getsockname( clientFD, (struct sockaddr*)&addr, &addrLen ) ) {
+		SP_IOUtils::inetNtoa( &( addr.sin_addr ), strip, sizeof( strip ) );
+		session->getRequest()->setServerIP( strip );
+	}
 
 	if( NULL != session ) {
 		eventArg->getSessionManager()->put( sid.mKey, sid.mSeq, session );
@@ -177,8 +182,11 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 			addEvent( session, EV_READ, -1 );
 		} else {
 			int saved = errno;
-			sp_syslog( LOG_NOTICE, "session(%d.%d) read error, errno %d, status %d",
-					sid.mKey, sid.mSeq, errno, session->getStatus() );
+
+			if( 0 != errno ) {
+				sp_syslog( LOG_NOTICE, "session(%d.%d) read error, errno %d, status %d",
+						sid.mKey, sid.mSeq, errno, session->getStatus() );
+			}
 
 			if( EAGAIN != saved ) {
 				if( 0 == session->getRunning() ) {

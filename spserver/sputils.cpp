@@ -228,19 +228,33 @@ int sp_strtok( const char * src, int index, char * dest, int len,
 
 	const char * pos1 = src, * pos2 = NULL;
 
-	while ( isspace( delimiter ) && delimiter == * pos1 && '\0' != * pos1 ) pos1++;
+	if( isspace( delimiter ) ) delimiter = 0;
+
+	for( ; isspace( *pos1 ); ) pos1++;
+
 	for ( int i = 0; i < index; i++ ) {
-		pos1 = strchr ( pos1, delimiter );
+		if( 0 == delimiter ) {
+			for( ; '\0' != *pos1 && !isspace( *pos1 ); ) pos1++;
+			if( '\0' == *pos1 ) pos1 = NULL;
+		} else {
+			pos1 = strchr ( pos1, delimiter );
+		}
 		if ( NULL == pos1 ) break;
-		while ( isspace( delimiter ) && delimiter == * pos1 && '\0' != * pos1 ) pos1++;
+
+		pos1++;
+		for( ; isspace( *pos1 ); ) pos1++;
 	}
 
 	*dest = '\0';
 	if( NULL != next ) *next = NULL;
 
 	if ( NULL != pos1 && '\0' != * pos1 ) {
-		if( delimiter == *pos1 ) pos1++;
-		pos2 = strchr ( pos1, delimiter );
+		if( 0 == delimiter ) {
+			for( pos2 = pos1; '\0' != *pos2 && !isspace( *pos2 ); ) pos2++;
+			if( '\0' == *pos2 ) pos2 = NULL;
+		} else {
+			pos2 = strchr ( pos1, delimiter );
+		}
 		if ( NULL == pos2 ) {
 			strncpy ( dest, pos1, len );
 			if ( ((int)strlen(pos1)) >= len ) ret = -2;
@@ -249,7 +263,7 @@ int sp_strtok( const char * src, int index, char * dest, int len,
 			len = ( pos2 - pos1 + 1 ) > len ? len : ( pos2 - pos1 + 1 );
 			strncpy( dest, pos1, len );
 
-			while ( isspace( delimiter ) && delimiter == * pos2 && '\0' != * pos2 ) pos2++;
+			for( pos2++; isspace( *pos2 ); ) pos2++;
 			if( NULL != next && '\0' != *pos2 ) *next = pos2;
 		}
 	} else {
@@ -257,6 +271,11 @@ int sp_strtok( const char * src, int index, char * dest, int len,
 	}
 
 	dest[ len - 1 ] = '\0';
+	len = strlen( dest );
+
+	// remove tailing space
+	for( ; len > 0 && isspace( dest[ len - 1 ] ); ) len--;
+	dest[ len ] = '\0';
 
 	return ret;
 }

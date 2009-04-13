@@ -93,11 +93,7 @@ int main( int argc, char * argv[] )
 		}
 	}
 
-#ifdef LOG_PERROR
 	//openlog( "testhttp_d", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
-#else
-	//openlog( "testhttp_d", LOG_CONS | LOG_PID, LOG_USER );
-#endif
 
 	int maxConnections = 10000, reqQueueSize = 10000;
 	const char * refusedMsg = "HTTP/1.1 500 Sorry, server is busy now!\r\n";

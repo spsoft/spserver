@@ -320,11 +320,7 @@ int main( int argc, char * argv[] )
 		}
 	}
 
-#ifdef LOG_PERROR
 	sp_openlog( "testiocpdispatcher", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
-#else
-	sp_openlog( "testiocpdispatcher", LOG_CONS | LOG_PID, LOG_USER );
-#endif
 
 	assert( 0 == sp_initsock() );
 

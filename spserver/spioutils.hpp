@@ -18,6 +18,8 @@ public:
 
 	static int tcpListen( const char * ip, int port, int * fd, int blocking = 1 );
 
+	static int initDaemon( const char * workdir = 0 );
+
 private:
 	SP_IOUtils();
 };

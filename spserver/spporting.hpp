@@ -22,6 +22,7 @@
 #include <syslog.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <signal.h>
 
 #define sp_syslog      syslog
 #define sp_openlog     openlog
@@ -38,6 +39,11 @@ inline int sp_initsock()
 	return 0;
 }
 
+#ifndef LOG_PERROR
+#define LOG_PERROR  0
 #endif
 
 #endif
+
+#endif
+
