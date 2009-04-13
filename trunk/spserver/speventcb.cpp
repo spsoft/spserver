@@ -184,7 +184,7 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 			int saved = errno;
 
 			if( 0 != errno ) {
-				sp_syslog( LOG_NOTICE, "session(%d.%d) read error, errno %d, status %d",
+				sp_syslog( LOG_WARNING, "session(%d.%d) read error, errno %d, status %d",
 						sid.mKey, sid.mSeq, errno, session->getStatus() );
 			}
 
@@ -252,7 +252,7 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 			if( SP_Session::eExit == session->getStatus() ) {
 				ret = -1;
 				if( 0 == session->getRunning() ) {
-					sp_syslog( LOG_NOTICE, "session(%d.%d) normal exit", sid.mKey, sid.mSeq );
+					sp_syslog( LOG_DEBUG, "session(%d.%d) normal exit", sid.mKey, sid.mSeq );
 					SP_EventHelper::doClose( session );
 				} else {
 					addEvent( session, EV_WRITE, -1 );
@@ -561,7 +561,7 @@ void SP_EventHelper :: myclose( void * arg )
 	SP_EventArg * eventArg = (SP_EventArg*)session->getArg();
 	SP_Sid_t sid = session->getSid();
 
-	sp_syslog( LOG_NOTICE, "session(%d.%d) close, r %d(%d), w %d(%d), i %d, o %d, s %d(%d)",
+	sp_syslog( LOG_DEBUG, "session(%d.%d) close, r %d(%d), w %d(%d), i %d, o %d, s %d(%d)",
 			sid.mKey, sid.mSeq, session->getTotalRead(), session->getReading(),
 			session->getTotalWrite(), session->getWriting(),
 			session->getInBuffer()->getSize(), session->getOutList()->getCount(),
