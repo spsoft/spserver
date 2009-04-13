@@ -25,7 +25,7 @@ public:
 		eClose  = -2  // force to close the connection
 	};
 
-	virtual int welcome( const char * clientIP, SP_Buffer * reply );
+	virtual int welcome( const char * clientIP, const char * serverIP, SP_Buffer * reply );
 
 	virtual int help( const char * args, SP_Buffer * reply );
 

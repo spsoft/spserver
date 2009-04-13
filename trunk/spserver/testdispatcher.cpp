@@ -105,11 +105,7 @@ int main( int argc, char * argv[] )
 		}
 	}
 
-#ifdef LOG_PERROR
 	openlog( "testdispatcher", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
-#else
-	openlog( "testdispatcher", LOG_CONS | LOG_PID, LOG_USER );
-#endif
 
 	int maxConnections = 100, reqQueueSize = 10;
 	const char * refusedMsg = "System busy, try again later.";

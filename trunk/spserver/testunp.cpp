@@ -96,11 +96,7 @@ int main( int argc, char * argv[] )
 		}
 	}
 
-#ifdef LOG_PERROR
 	openlog( "testunp", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
-#else
-	openlog( "testunp", LOG_CONS | LOG_PID, LOG_USER );
-#endif
 
 	setlogmask( LOG_UPTO( LOG_WARNING ) );
 

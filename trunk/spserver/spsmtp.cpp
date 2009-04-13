@@ -28,7 +28,7 @@ void SP_SmtpHandler :: timeout()
 {
 }
 
-int SP_SmtpHandler :: welcome( const char * clientIP, SP_Buffer * reply )
+int SP_SmtpHandler :: welcome( const char * clientIP, const char * serverIP, SP_Buffer * reply )
 {
 	reply->append( "220 SMTP service ready\n" );
 
@@ -329,7 +329,8 @@ int SP_SmtpHandlerAdapter :: start( SP_Request * request, SP_Response * response
 {
 	SP_Buffer * reply = response->getReply()->getMsg();
 
-	int ret = mSession->getHandler()->welcome( request->getClientIP(), reply );
+	int ret = mSession->getHandler()->welcome( request->getClientIP(),
+			request->getServerIP(), reply );
 
 	if( NULL == reply->find( "\n", 1 ) ) reply->append( "\n" );
 

@@ -10,12 +10,16 @@
 
 #include "sprequest.hpp"
 #include "spmsgdecoder.hpp"
+#include "sputils.hpp"
 
 SP_Request :: SP_Request()
 {
-	memset( mClientIP, 0, sizeof( mClientIP ) );
 	mDecoder = new SP_DefaultMsgDecoder();
-	mPort = 0;
+
+	memset( mClientIP, 0, sizeof( mClientIP ) );
+	mClientPort = 0;
+
+	memset( mServerIP, 0, sizeof( mServerIP ) );
 }
 
 SP_Request :: ~SP_Request()
@@ -37,7 +41,7 @@ void SP_Request :: setMsgDecoder( SP_MsgDecoder * decoder )
 
 void SP_Request :: setClientIP( const char * clientIP )
 {
-	snprintf( mClientIP, sizeof( mClientIP ), "%s", clientIP );
+	sp_strlcpy( mClientIP, clientIP, sizeof( mClientIP ) );
 }
 
 const char * SP_Request :: getClientIP()
@@ -47,11 +51,21 @@ const char * SP_Request :: getClientIP()
 
 void SP_Request :: setClientPort( int port )
 {
-	mPort = port;
+	mClientPort = port;
 }
 
 int SP_Request :: getClientPort()
 {
-	return mPort;
+	return mClientPort;
+}
+
+void SP_Request :: setServerIP( const char * ip )
+{
+	sp_strlcpy( mServerIP, ip, sizeof( mServerIP ) );
+}
+
+const char * SP_Request :: getServerIP()
+{
+	return mServerIP;
 }
 
