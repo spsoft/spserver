@@ -187,9 +187,6 @@ SP_SmtpSession :: ~SP_SmtpSession()
 
 void SP_SmtpSession :: reset()
 {
-	if( NULL != mHandler ) delete mHandler;
-	mHandler = NULL;
-
 	mSeenSender = 0;
 	mRcptCount = 0;
 	mSeenData = 0;
@@ -462,8 +459,8 @@ int SP_SmtpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 			}
 
 		} else if( 0 == strcasecmp( cmd, "RSET" ) ) {
+			ret = mSession->getHandler()->rset( reply );
 			mSession->reset();
-			reply->append( "250 OK\r\n" );
 
 		} else if( 0 == strcasecmp( cmd, "NOOP" ) ) {
 			ret = mSession->getHandler()->noop( args, reply );
