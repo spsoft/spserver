@@ -65,6 +65,12 @@ public:
 	 * @param data will be the smtp data stream, stripped of any extra '.' chars
 	 */
 	virtual int data( const char * data, SP_Buffer * reply ) = 0;
+
+	/**
+	 * This method is called whenever a RSET command is sent. It should
+	 * be used to clean up any pending deliveries.
+	 */
+	virtual int rset( SP_Buffer * reply ) = 0;
 };
 
 class SP_SmtpHandlerList {

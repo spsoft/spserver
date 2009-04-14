@@ -85,6 +85,12 @@ public:
 		return eAccept;
 	}
 
+	virtual int rset( SP_Buffer * reply ) {
+		reply->append( "250 OK\r\n" );
+
+		return eAccept;
+	}
+
 private:
 	int mAuthResult;
 };
