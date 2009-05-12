@@ -376,6 +376,16 @@ void SP_HttpMessage :: setContent( const void * content, int length )
 	appendContent( content, length );
 }
 
+void SP_HttpMessage :: directSetContent( void * content, int length )
+{
+	if( NULL != mContent ) free( mContent );
+
+	length = length > 0 ? length : strlen( (char*)content );
+
+	mContentLength = mMaxLength = length;
+	mContent = content;
+}
+
 const void * SP_HttpMessage :: getContent() const
 {
 	return mContent;

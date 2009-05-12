@@ -71,6 +71,7 @@ public:
 
 	void appendContent( const void * content, int length = 0, int maxLength = 0 );
 	void setContent( const void * content, int length = 0 );
+	void directSetContent( void * content, int length = 0 );
 	const void * getContent() const;
 	int getContentLength() const;
 
