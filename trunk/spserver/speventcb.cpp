@@ -192,9 +192,10 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 				if( 0 == session->getRunning() ) {
 					SP_EventHelper::doError( session );
 				} else {
-					addEvent( session, EV_READ, -1 );
 					sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later",
 							sid.mKey, sid.mSeq );
+					// If this session is running, then onResponse will add write event for this session.
+					// It will be processed as write fail at the last. So no need to re-add event here.
 				}
 			} else {
 				addEvent( session, EV_READ, -1 );
@@ -204,9 +205,10 @@ void SP_EventCallback :: onRead( int fd, short events, void * arg )
 		if( 0 == session->getRunning() ) {
 			SP_EventHelper::doTimeout( session );
 		} else {
-			addEvent( session, EV_READ, -1 );
 			sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session timeout later",
 					sid.mKey, sid.mSeq );
+			// If this session is running, then onResponse will add write event for this session.
+			// It will be processed as write fail at the last. So no need to re-add event here.
 		}
 	}
 }
@@ -238,9 +240,10 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 								sid.mKey, sid.mSeq, errno, session->getStatus(), session->getOutList()->getCount() );
 						SP_EventHelper::doError( session );
 					} else {
-						addEvent( session, EV_WRITE, -1 );
 						sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session error later, errno [%d]",
 								sid.mKey, sid.mSeq, errno );
+						// If this session is running, then onResponse will add write event for this session.
+						// It will be processed as write fail at the last. So no need to re-add event here.
 					}
 				} else {
 					addEvent( session, EV_WRITE, -1 );
@@ -255,9 +258,10 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 					sp_syslog( LOG_DEBUG, "session(%d.%d) normal exit", sid.mKey, sid.mSeq );
 					SP_EventHelper::doClose( session );
 				} else {
-					addEvent( session, EV_WRITE, -1 );
 					sp_syslog( LOG_NOTICE, "session(%d.%d) busy, terminate session later",
 							sid.mKey, sid.mSeq );
+					// If this session is running, then onResponse will add write event for this session.
+					// It will be processed as write fail at the last. So no need to re-add event here.
 				}
 			}
 		}
@@ -277,9 +281,10 @@ void SP_EventCallback :: onWrite( int fd, short events, void * arg )
 		if( 0 == session->getRunning() ) {
 			SP_EventHelper::doTimeout( session );
 		} else {
-			addEvent( session, EV_WRITE, -1 );
 			sp_syslog( LOG_NOTICE, "session(%d.%d) busy, process session timeout later",
 					sid.mKey, sid.mSeq );
+			// If this session is running, then onResponse will add write event for this session.
+			// It will be processed as write fail at the last. So no need to re-add event here.
 		}
 	}
 }
