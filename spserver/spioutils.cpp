@@ -69,7 +69,7 @@ int SP_IOUtils :: tcpListen( const char * ip, int port, int * fd, int blocking )
 
 	int listenFd = socket( AF_INET, SOCK_STREAM, 0 );
 	if( listenFd < 0 ) {
-		sp_syslog( LOG_WARNING, "listen failed, errno %d, %s", errno, strerror( errno ) );
+		sp_syslog( LOG_WARNING, "socket failed, errno %d, %s", errno, strerror( errno ) );
 		ret = -1;
 	}
 
@@ -127,6 +127,74 @@ int SP_IOUtils :: tcpListen( const char * ip, int port, int * fd, int blocking )
 	if( 0 == ret ) {
 		* fd = listenFd;
 		sp_syslog( LOG_NOTICE, "Listen on port [%d]", port );
+	}
+
+	return ret;
+}
+
+int SP_IOUtils :: tcpListen( const char * path, int * fd, int blocking )
+{
+	int ret = 0;
+
+	struct sockaddr_un addr;
+	memset( &addr, 0, sizeof( addr ) );
+
+	if( strlen( path ) > ( sizeof( addr.sun_path ) - 1 ) ) {
+		sp_syslog( LOG_WARNING, "UNIX socket name %s too long", path );
+		return -1;
+	}
+
+	if( 0 == access( path, F_OK ) ) {
+		if( 0 != unlink( path ) ) {
+			sp_syslog( LOG_WARNING, "unlink %s failed, errno %d, %s",
+				path, errno, strerror( errno ) );
+			return -1;
+		}
+	}
+
+	addr.sun_family = AF_UNIX;
+	strncpy( addr.sun_path, path, sizeof( addr.sun_path ) - 1 );
+
+	int listenFd = socket( AF_UNIX, SOCK_STREAM, 0 );
+	if( listenFd < 0 ) {
+		sp_syslog( LOG_WARNING, "listen failed, errno %d, %s", errno, strerror( errno ) );
+		ret = -1;
+	}
+
+	if( 0 == ret && 0 == blocking ) {
+		if( setNonblock( listenFd ) < 0 ) {
+			sp_syslog( LOG_WARNING, "failed to set socket to non-blocking" );
+			ret = -1;
+		}
+	}
+
+	if( 0 == ret ) {
+		int flags = 1;
+		if( setsockopt( listenFd, SOL_SOCKET, SO_REUSEADDR, (char*)&flags, sizeof( flags ) ) < 0 ) {
+			sp_syslog( LOG_WARNING, "failed to set setsock to reuseaddr" );
+			ret = -1;
+		}
+	}
+
+	if( 0 == ret ) {
+		if( bind( listenFd, (struct sockaddr*)&addr, sizeof( addr ) ) < 0 ) {
+			sp_syslog( LOG_WARNING, "bind failed, errno %d, %s", errno, strerror( errno ) );
+			ret = -1;
+		}
+	}
+
+	if( 0 == ret ) {
+		if( ::listen( listenFd, 1024 ) < 0 ) {
+			sp_syslog( LOG_WARNING, "listen failed, errno %d, %s", errno, strerror( errno ) );
+			ret = -1;
+		}
+	}
+
+	if( 0 != ret && listenFd >= 0 ) sp_close( listenFd );
+
+	if( 0 == ret ) {
+		* fd = listenFd;
+		sp_syslog( LOG_NOTICE, "Listen on [%s]", path );
 	}
 
 	return ret;

@@ -20,6 +20,8 @@ public:
 
 	static int initDaemon( const char * workdir = 0 );
 
+	static int tcpListen( const char * path, int * fd, int blocking = 1 );
+
 private:
 	SP_IOUtils();
 };
