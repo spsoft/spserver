@@ -12,7 +12,7 @@ LINT = lint -c
 RM = /bin/rm -f
 
 LIBEVENT_INCL = -I$(HOME)/libevent/
-LIBEVENT_LIB  = -L$(HOME)/libevent -levent
+LIBEVENT_LIB  = -L$(HOME)/libevent -levent -lrt
 
 CFLAGS  += $(LIBEVENT_INCL)
 LDFLAGS += $(LIBEVENT_LIB)
@@ -41,37 +41,37 @@ libspserver.a: $(LIBOBJS)
 	$(AR) $@ $^
 
 testthreadpool: testthreadpool.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
+	$(LINKER) $^ -L. -lspserver $(LDFLAGS) -o $@
 
 testsmtp: testsmtp.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
-
+	$(LINKER) $^ -L. -lspserver $(LDFLAGS) -o $@
+                             
 testchat: testchat.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
-
+	$(LINKER) $^ -L. -lspserver $(LDFLAGS) -o $@
+                             
 teststress: teststress.o
-	$(LINKER) $(LDFLAGS) $^ -L. -levent -o $@
-
+	$(LINKER) $^ -L. -levent $(LDFLAGS) -o $@
+                             
 testecho: testecho.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
-
+	$(LINKER) $^ -L. -lspserver $(LDFLAGS) -o $@
+                             
 testhttp: testhttp.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
-
+	$(LINKER) $^ -L. -lspserver $(LDFLAGS) -o $@
+                             
 testhttp_d: testhttp_d.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
+	$(LINKER) $^ -L. -lspserver $(LDFLAGS) -o $@
 
 testhttpmsg: sputils.o sphttpmsg.o testhttpmsg.o
-	$(LINKER) $(LDFLAGS) $^ -L. -o $@
+	$(LINKER) $^ $(LDFLAGS) -o $@
 
 testdispatcher: testdispatcher.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
-
+	$(LINKER) $^ -L. -lspserver $(LDFLAGS) -o $@
+                              
 testchat_d: testchat_d.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
-
+	$(LINKER) $^ -L. -lspserver $(LDFLAGS) -o $@
+                              
 testunp: testunp.o
-	$(LINKER) $(LDFLAGS) $^ -L. -lspserver -o $@
+	$(LINKER) $^ -L. -lspserver $(LDFLAGS) -o $@
 
 clean:
 	@( $(RM) *.o vgcore.* core core.* $(TARGET) )
