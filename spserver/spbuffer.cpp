@@ -84,6 +84,16 @@ void SP_Buffer :: reset()
 	erase( getSize() );
 }
 
+int SP_Buffer :: truncate( int len )
+{
+	if( len < getSize() ) {
+		EVBUFFER_LENGTH( mBuffer ) = len;
+		return 0;
+	}
+
+	return -1;
+}
+
 const void * SP_Buffer :: getBuffer() const
 {
 	if( NULL != EVBUFFER_DATA( mBuffer ) ) {
