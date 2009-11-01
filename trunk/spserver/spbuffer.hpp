@@ -28,6 +28,8 @@ public:
 
 	void erase( int len );
 	void reset();
+	int truncate( int len );
+
 	const void * getBuffer() const;
 	size_t getSize() const;
 	int take( char * buffer, int len );
