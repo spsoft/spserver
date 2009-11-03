@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <signal.h>
+#include <sys/resource.h>
 
 #define sp_syslog      syslog
 #define sp_openlog     openlog
