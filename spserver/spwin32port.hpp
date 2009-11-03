@@ -18,6 +18,7 @@ extern "C" {
 #endif
 
 typedef unsigned short uint16_t;
+typedef unsigned __int64 uint64_t;
 typedef int socklen_t;
 
 #ifndef WSAID_DISCONNECTEX

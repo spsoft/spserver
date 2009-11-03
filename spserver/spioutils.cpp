@@ -136,6 +136,8 @@ int SP_IOUtils :: tcpListen( const char * path, int * fd, int blocking )
 {
 	int ret = 0;
 
+#ifndef WIN32
+
 	struct sockaddr_un addr;
 	memset( &addr, 0, sizeof( addr ) );
 
@@ -196,6 +198,8 @@ int SP_IOUtils :: tcpListen( const char * path, int * fd, int blocking )
 		* fd = listenFd;
 		sp_syslog( LOG_NOTICE, "Listen on [%s]", path );
 	}
+
+#endif
 
 	return ret;
 }
