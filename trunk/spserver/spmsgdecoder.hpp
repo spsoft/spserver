@@ -75,5 +75,26 @@ private:
 	char * mBuffer;
 };
 
+class SP_ArrayList;
+
+class SP_DotTermChunkMsgDecoder : public SP_MsgDecoder {
+public:
+
+	enum { MAX_SIZE_PER_CHUNK = 1024 * 64 };
+
+public:
+	SP_DotTermChunkMsgDecoder();
+	virtual ~SP_DotTermChunkMsgDecoder();
+
+	// return SP_MsgDecoder::eMoreData until meet <CRLF>.<CRLF>
+	virtual int decode( SP_Buffer * inBuffer );
+
+	// caller need to free return value
+	char * getMsg();
+
+private:
+	SP_ArrayList * mList;
+};
+
 #endif
 

@@ -4,6 +4,8 @@
  */
 
 #include <string.h>
+#include <assert.h>
+#include <stdio.h>
 
 #include "spmsgdecoder.hpp"
 
@@ -140,7 +142,7 @@ int SP_DotTermMsgDecoder :: decode( SP_Buffer * inBuffer )
 	}
 
 	if( NULL != pos ) {
-		int len = pos - (char*)inBuffer->getBuffer();
+		int len = pos - (char*)inBuffer->getRawBuffer();
 
 		mBuffer = (char*)malloc( len + 1 );
 		memcpy( mBuffer, inBuffer->getBuffer(), len );
@@ -156,7 +158,7 @@ int SP_DotTermMsgDecoder :: decode( SP_Buffer * inBuffer )
 		}
 		* des = '\0';
 
-		if( 0 == strcmp( (char*)pos, "\n.\n" ) ) {
+		if( 0 == strncmp( (char*)pos, "\n.\n", 3 ) ) {
 			inBuffer->erase( 3 );
 		} else  {
 			inBuffer->erase( 5 );
@@ -170,5 +172,125 @@ int SP_DotTermMsgDecoder :: decode( SP_Buffer * inBuffer )
 const char * SP_DotTermMsgDecoder :: getMsg()
 {
 	return mBuffer;
+}
+
+//-------------------------------------------------------------------
+
+SP_DotTermChunkMsgDecoder :: SP_DotTermChunkMsgDecoder()
+{
+	mList = new SP_ArrayList();
+}
+
+SP_DotTermChunkMsgDecoder :: ~SP_DotTermChunkMsgDecoder()
+{
+	for( int i = 0; i < mList->getCount(); i++ ) {
+		SP_Buffer * item = (SP_Buffer*)mList->getItem( i );
+		delete item;
+	}
+
+	delete mList, mList = NULL;
+}
+
+int SP_DotTermChunkMsgDecoder :: decode( SP_Buffer * inBuffer )
+{
+	if( inBuffer->getSize() <= 0 ) return eMoreData;
+
+	const char * pos = (char*)inBuffer->find( "\r\n.\r\n", 5 );	
+
+	if( NULL == pos ) {
+		pos = (char*)inBuffer->find( "\n.\n", 3 );
+	}
+
+	if( NULL != pos ) {
+		if( pos != inBuffer->getRawBuffer() ) {
+			int len = pos - (char*)inBuffer->getRawBuffer();
+
+			SP_Buffer * last = new SP_Buffer();
+			last->append( inBuffer->getBuffer(), len );
+			mList->append( last );
+
+			inBuffer->erase( len );
+		}
+
+		if( 0 == strncmp( (char*)pos, "\n.\n", 3 ) ) {
+			inBuffer->erase( 3 );
+		} else  {
+			inBuffer->erase( 5 );
+		}
+
+		return eOK;
+	} else {
+		if( mList->getCount() > 0 ) {
+			char dotTerm[ 16 ] = { 0 };
+
+			SP_Buffer * prevBuffer = (SP_Buffer*)mList->getItem( SP_ArrayList::LAST_INDEX );
+			pos = ((char*)prevBuffer->getRawBuffer()) + prevBuffer->getSize() - 5;
+			memcpy( dotTerm, pos, 5 );
+
+			if( inBuffer->getSize() > 5 ) {
+				memcpy( dotTerm + 5, inBuffer->getRawBuffer(), 5 );
+			} else {
+				memcpy( dotTerm + 5, inBuffer->getRawBuffer(), inBuffer->getSize() );
+			}
+
+			pos = strstr( dotTerm, "\r\n.\r\n" );
+			if( NULL == pos ) pos = strstr( dotTerm, "\n.\n" );
+
+			if( NULL != pos ) {
+				int prevLen = 5 - ( pos - dotTerm );
+				int lastLen = 5 - prevLen;
+				if( 0 == strncmp( (char*)pos, "\n.\n", 3 )) lastLen = 3 - prevLen;
+
+				assert( prevLen < 5 && lastLen < 5 );
+
+				prevBuffer->truncate( prevBuffer->getSize() - prevLen );
+				inBuffer->erase( lastLen );
+
+				return eOK;
+			}
+		}
+
+		if( inBuffer->getSize() >= ( MAX_SIZE_PER_CHUNK - 1024 * 4 ) ) {
+			mList->append( inBuffer->take() );
+		}
+		inBuffer->reserve( MAX_SIZE_PER_CHUNK );
+	}
+
+	return eMoreData;
+}
+
+char * SP_DotTermChunkMsgDecoder :: getMsg()
+{
+	int totalSize = 0;
+	for( int i = 0; i < mList->getCount(); i++ ) {
+		SP_Buffer * item = (SP_Buffer*)mList->getItem( i );
+		totalSize += item->getSize();
+	}
+
+	char * ret = (char*)malloc( totalSize + 1 );
+	ret[ totalSize ] = '\0';
+
+	char * des = ret, * src = NULL;
+
+	for( int i = 0; i < mList->getCount(); i++ ) {
+		SP_Buffer * item = (SP_Buffer*)mList->getItem( i );
+		memcpy( des, item->getRawBuffer(), item->getSize() );
+		des += item->getSize();
+	}
+
+	for( int i = 0; i < mList->getCount(); i++ ) {
+		SP_Buffer * item = (SP_Buffer*)mList->getItem( i );
+		delete item;
+	}
+	mList->clean();
+
+	/* remove with the "\n.." */
+	for( src = des = ret + 1; * src != '\0'; ) {
+		if( '.' == *src && '\n' == * ( src - 1 ) ) src++ ;
+		* des++ = * src++;
+	}
+	* des = '\0';
+
+	return ret;
 }
 

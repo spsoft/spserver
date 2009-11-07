@@ -86,12 +86,22 @@ void SP_Buffer :: reset()
 
 int SP_Buffer :: truncate( int len )
 {
-	if( len < getSize() ) {
+	if( len < (int)getSize() ) {
 		EVBUFFER_LENGTH( mBuffer ) = len;
 		return 0;
 	}
 
 	return -1;
+}
+
+void SP_Buffer :: reserve( int len )
+{
+	sp_evbuffer_expand( mBuffer, len - getSize() );
+}
+
+int SP_Buffer :: getCapacity()
+{
+	return mBuffer->totallen;
 }
 
 const void * SP_Buffer :: getBuffer() const
@@ -103,6 +113,11 @@ const void * SP_Buffer :: getBuffer() const
 	} else {
 		return "";
 	}
+}
+
+const void * SP_Buffer :: getRawBuffer() const
+{
+	return EVBUFFER_DATA( mBuffer );
 }
 
 size_t SP_Buffer :: getSize() const

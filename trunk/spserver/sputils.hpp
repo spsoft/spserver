@@ -20,6 +20,8 @@ public:
 	const void * getItem( int index ) const;
 	void * takeItem( int index );
 
+	void clean();
+
 private:
 	SP_ArrayList( SP_ArrayList & );
 	SP_ArrayList & operator=( SP_ArrayList & );

@@ -343,8 +343,12 @@ int SP_SmtpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 	SP_Buffer * reply = response->getReply()->getMsg();
 
 	if( mSession->getDataMode() ) {
-		SP_DotTermMsgDecoder * decoder = (SP_DotTermMsgDecoder*)request->getMsgDecoder();
-		ret = mSession->getHandler()->data( decoder->getMsg(), reply );
+		SP_DotTermChunkMsgDecoder * decoder = (SP_DotTermChunkMsgDecoder*)request->getMsgDecoder();
+
+		char * data = (char*)decoder->getMsg();
+		ret = mSession->getHandler()->data( data, reply );
+		free( data );
+
 		mSession->setDataMode( 0 );
 		request->setMsgDecoder( new SP_LineMsgDecoder() );
 
@@ -453,7 +457,7 @@ int SP_SmtpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 			} else if( mSession->getRcptCount() <= 0 ) {
 				reply->append( "503 Error: need RCPT command\r\n" );
 			} else {
-				request->setMsgDecoder( new SP_DotTermMsgDecoder() );
+				request->setMsgDecoder( new SP_DotTermChunkMsgDecoder() );
 				reply->append( "354 Start mail input; end with <CRLF>.<CRLF>\r\n" );
 				mSession->setDataMode( 1 );
 			}
@@ -473,7 +477,7 @@ int SP_SmtpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 			ret = SP_SmtpHandler::eClose;
 
 		} else {
-			reply->append( "500 Syntax error, command unrecognized.\r\n" );
+			reply->printf( "500 Syntax error, command unrecognized <%s>.\r\n", cmd );
 		}
 	}
 
