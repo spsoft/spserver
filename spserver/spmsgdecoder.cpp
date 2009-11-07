@@ -261,8 +261,8 @@ int SP_DotTermChunkMsgDecoder :: decode( SP_Buffer * inBuffer )
 
 char * SP_DotTermChunkMsgDecoder :: getMsg()
 {
-	int totalSize = 0;
-	for( int i = 0; i < mList->getCount(); i++ ) {
+	int i = 0, totalSize = 0;
+	for( i = 0; i < mList->getCount(); i++ ) {
 		SP_Buffer * item = (SP_Buffer*)mList->getItem( i );
 		totalSize += item->getSize();
 	}
@@ -272,13 +272,13 @@ char * SP_DotTermChunkMsgDecoder :: getMsg()
 
 	char * des = ret, * src = NULL;
 
-	for( int i = 0; i < mList->getCount(); i++ ) {
+	for( i = 0; i < mList->getCount(); i++ ) {
 		SP_Buffer * item = (SP_Buffer*)mList->getItem( i );
 		memcpy( des, item->getRawBuffer(), item->getSize() );
 		des += item->getSize();
 	}
 
-	for( int i = 0; i < mList->getCount(); i++ ) {
+	for( i = 0; i < mList->getCount(); i++ ) {
 		SP_Buffer * item = (SP_Buffer*)mList->getItem( i );
 		delete item;
 	}
