@@ -29,8 +29,11 @@ public:
 	void erase( int len );
 	void reset();
 	int truncate( int len );
+	void reserve( int len );
+	int getCapacity();
 
 	const void * getBuffer() const;
+	const void * getRawBuffer() const;
 	size_t getSize() const;
 	int take( char * buffer, int len );
 

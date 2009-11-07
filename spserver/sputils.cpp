@@ -79,6 +79,12 @@ const void * SP_ArrayList :: getItem( int index ) const
 	return ret;
 }
 
+void SP_ArrayList :: clean()
+{
+	mCount = 0;
+	memset( mFirst, 0, sizeof( void * ) * mMaxCount );
+}
+
 //-------------------------------------------------------------------
 
 SP_CircleQueue :: SP_CircleQueue()

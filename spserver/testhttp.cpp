@@ -74,7 +74,7 @@ public:
 int main( int argc, char * argv[] )
 {
 	int port = 8080, maxThreads = 10;
-	const char * serverType = "hahs";
+	const char * serverType = "lf";
 
 #ifndef WIN32
 	extern char *optarg ;
