@@ -132,7 +132,7 @@ int SP_IOUtils :: tcpListen( const char * ip, int port, int * fd, int blocking )
 	return ret;
 }
 
-int SP_IOUtils :: tcpListen( const char * path, int * fd, int blocking )
+int SP_IOUtils :: tcpListen( const char * path, int * fd, int blocking, int mode )
 {
 	int ret = 0;
 
@@ -196,6 +196,13 @@ int SP_IOUtils :: tcpListen( const char * path, int * fd, int blocking )
 
 	if( 0 == ret ) {
 		* fd = listenFd;
+
+		if( mode > 0 ) {
+			if( 0 != fchmod( *fd, (mode_t)mode ) ) {
+				sp_syslog( LOG_WARNING, "fchmod fail, errno %d, %s", errno, strerror( errno ) );
+			}
+		}
+
 		sp_syslog( LOG_NOTICE, "Listen on [%s]", path );
 	}
 
