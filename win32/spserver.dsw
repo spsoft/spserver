@@ -1,5 +1,5 @@
 Microsoft Developer Studio Workspace File, Format Version 6.00
-# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+# 警告: 不能编辑或删除该工作区文件！
 
 ###############################################################################
 
@@ -59,6 +59,9 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name spserver
+    End Project Dependency
 }}}
 
 ###############################################################################
@@ -83,6 +86,9 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name spserver
+    End Project Dependency
 }}}
 
 ###############################################################################
@@ -95,6 +101,9 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name spserver
+    End Project Dependency
 }}}
 
 ###############################################################################
@@ -107,6 +116,9 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name spserver
+    End Project Dependency
 }}}
 
 ###############################################################################
@@ -119,6 +131,9 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name spserver
+    End Project Dependency
 }}}
 
 ###############################################################################
@@ -143,6 +158,9 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name spserver
+    End Project Dependency
 }}}
 
 ###############################################################################
@@ -155,6 +173,9 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name spserver
+    End Project Dependency
 }}}
 
 ###############################################################################
