@@ -181,11 +181,13 @@ int SP_HttpHandlerAdapter :: handle( SP_Request * request, SP_Response * respons
 		}
 	}
 
-	// check Content-Length header
-	httpResponse->removeHeader( SP_HttpMessage::HEADER_CONTENT_LENGTH );
-	if( httpResponse->getContentLength() >= 0 ) {
-		snprintf( buffer, sizeof( buffer ), "%d", httpResponse->getContentLength() );
-		httpResponse->addHeader( SP_HttpMessage::HEADER_CONTENT_LENGTH, buffer );
+	if( 0 != strcasecmp( httpRequest->getMethod(), "head" ) ) {
+		// check Content-Length header
+		httpResponse->removeHeader( SP_HttpMessage::HEADER_CONTENT_LENGTH );
+		if( httpResponse->getContentLength() >= 0 ) {
+				snprintf( buffer, sizeof( buffer ), "%d", httpResponse->getContentLength() );
+				httpResponse->addHeader( SP_HttpMessage::HEADER_CONTENT_LENGTH, buffer );
+		}
 	}
 
 	// check date header
